@@ -74,18 +74,18 @@ npm install
 npm start
 ```
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🔗 Links
+## Links
 
-- **🌐 Live Application**: [re-inventory-v2.web.app](https://re-inventory-v2.web.app/)
-- **💻 GitHub Repository**: [github.com/Cervini/REInventory](https://github.com/Cervini/REInventory)
-- **🐛 Bug Reports**: [GitHub Issues](https://github.com/Cervini/REInventory/issues)
-- **💡 Feature Requests**: [GitHub Discussions](https://github.com/Cervini/REInventory/discussions)
+- **Live Application**: [re-inventory-v2.web.app](https://re-inventory-v2.web.app/)
+- **GitHub Repository**: [github.com/Cervini/REInventory](https://github.com/Cervini/REInventory)
+- **Bug Reports**: [GitHub Issues](https://github.com/Cervini/REInventory/issues)
+- **Feature Requests**: [GitHub Discussions](https://github.com/Cervini/REInventory/discussions)
 
-## 📞 Support & Community
+## Support & Community
 
 - **Found a bug?** Please [open an issue](https://github.com/Cervini/REInventory/issues) on GitHub
 - **Have a feature idea?** We'd love to hear it in our [discussions](https://github.com/Cervini/REInventory/discussions)
