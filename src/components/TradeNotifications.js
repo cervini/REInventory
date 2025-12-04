@@ -60,7 +60,7 @@ export default function TradeNotifications({ campaignId, inventories }) {
         });
 
         return () => unsubscribe();
-    }, [campaignId, playerProfiles, inventories, auth.currentUser]);
+    }, [campaignId, playerProfiles, inventories]);
 
     /**
      * Accepts a trade request by updating its status to 'active' in Firestore.
