@@ -8,6 +8,8 @@ export default function TradeNotifications({ campaignId, inventories }) {
     const { playerProfiles } = usePlayerProfiles(campaignId);
 
     useEffect(() => {
+        // If auth is not ready or campaign is missing, do nothing.
+        // This will re-run once auth.currentUser is available because it's now in the dependency array.
         if (!auth.currentUser || !campaignId) return;
 
         const tradesRef = collection(db, 'trades');
@@ -58,7 +60,7 @@ export default function TradeNotifications({ campaignId, inventories }) {
         });
 
         return () => unsubscribe();
-    }, [campaignId, playerProfiles, inventories]);
+    }, [campaignId, playerProfiles, inventories, auth.currentUser]);
 
     /**
      * Accepts a trade request by updating its status to 'active' in Firestore.

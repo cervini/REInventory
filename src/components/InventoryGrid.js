@@ -109,24 +109,24 @@ const PlayerInventory = ({
       
       {/* Collapsible Equipped Items Tray */}
       {!isPlayerDM && (
-        <div className={`transition-[max-height] duration-300 ease-in-out overflow-hidden ${isEquippedVisible ? 'max-h-96' : 'max-h-0'}`}>
-            <div className="p-2 bg-background/50 border-b border-surface/50">
-                <h3 className="font-bold font-fantasy text-text-muted px-2 text-sm">Equipped</h3>
-                <div className="bg-background/50 rounded-lg p-2 border border-accent/10 shadow-inner">
-                    <ItemTray
-                        items={inventoryData.equippedItems || []}
-                        containerId="equipped"
-                        onContextMenu={onContextMenu}
-                        playerId={playerId}
-                        isViewerDM={isViewerDM}
-                        emptyMessage="No items equipped."
-                        source="equipped"
-                        layout="horizontal"
-                        disabled={!isEquippedVisible}
-                    />
-                </div>
-            </div>
-        </div>
+        <div className={`transition-[max-height] duration-300 ease-in-out overflow-hidden ${isEquippedVisible ? 'max-h-96' : 'max-h-0 invisible'}`}>
+          <div className="p-2 bg-background/50 border-b border-surface/50">
+              <h3 className="font-bold font-fantasy text-text-muted px-2 text-sm">Equipped</h3>
+              <div className="bg-background/50 rounded-lg p-2 border border-accent/10 shadow-inner">
+                  <ItemTray
+                      items={inventoryData.equippedItems || []}
+                      containerId="equipped"
+                      onContextMenu={onContextMenu}
+                      playerId={playerId}
+                      isViewerDM={isViewerDM}
+                      emptyMessage="No items equipped."
+                      source="equipped"
+                      layout="horizontal"
+                      disabled={!isEquippedVisible}
+                  />
+              </div>
+          </div>
+      </div>
       )}
 
       <div className="bg-background/50">
@@ -1115,45 +1115,53 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
    * @param {string} sourceContainerId - The ID of the container the item is coming from.
    */
   const handleSendItem = async (item, source, sourcePlayerId, targetPlayerId, sourceContainerId, isSourcePlayerDM) => {
-    if (!item || !source || !sourcePlayerId || !targetPlayerId) return;
+
+    if (!item || !source || !sourcePlayerId || !targetPlayerId) {
+        return;
+    }
 
     const originalInventories = inventories;
     const newInventories = JSON.parse(JSON.stringify(inventories));
+    
     const sourceInventory = newInventories[sourcePlayerId];
     const targetInventory = newInventories[targetPlayerId];
-    if (!sourceInventory || !targetInventory) {
-      toast.error("Could not find source or target inventory.");
-      return;
+
+    if (!sourceInventory) {
+        return;
     }
 
+    // Check Equipped Items
+    if (sourceInventory.equippedItems) {
+        sourceInventory.equippedItems = sourceInventory.equippedItems.filter(i => i.id !== item.id);
+    }
+
+    // Check Tray
+    if (sourceInventory.trayItems) {
+         sourceInventory.trayItems = sourceInventory.trayItems.filter(i => i.id !== item.id);
+    }
+
+    // Check Containers
+    if (sourceInventory.containers) {
+        Object.values(sourceInventory.containers).forEach(container => {
+            if (container.gridItems) {
+                container.gridItems = container.gridItems.filter(i => i.id !== item.id);
+            }
+            if (container.trayItems) {
+                container.trayItems = container.trayItems.filter(i => i.id !== item.id);    
+            }
+        });
+    }
+    
+    // Add to Target
     const { x, y, ...itemForTray } = item;
     const isTargetDM = campaign?.dmId === targetPlayerId;
 
-    // --- 1. Remove from source ---
-    if (source === 'grid') {
-      const sourceContainer = sourceInventory.containers?.[sourceContainerId];
-      if (sourceContainer?.gridItems) {
-        sourceContainer.gridItems = sourceContainer.gridItems.filter(i => i.id !== item.id);
-      }
-    } else if (source === 'tray') {
-      if (isSourcePlayerDM) {
-        const sourceContainer = sourceInventory.containers?.[sourceContainerId];
-        if (sourceContainer?.trayItems) {
-          sourceContainer.trayItems = sourceContainer.trayItems.filter(i => i.id !== item.id);
-        }
-      } else {
-        if (sourceInventory.trayItems) {
-          sourceInventory.trayItems = sourceInventory.trayItems.filter(i => i.id !== item.id);
-        }
-      }
-    }
-
-    // --- 2. Add to target ---
     if (isTargetDM) {
       const targetContainer = Object.values(targetInventory.containers || {})[0];
-      if (!targetContainer) { toast.error("Target DM has no containers."); return; }
-      if (!targetContainer.trayItems) targetContainer.trayItems = [];
-      targetContainer.trayItems.push(itemForTray);
+      if (targetContainer) {
+          if (!targetContainer.trayItems) targetContainer.trayItems = [];
+          targetContainer.trayItems.push(itemForTray);
+      }
     } else {
       if (!targetInventory.trayItems) targetInventory.trayItems = [];
       targetInventory.trayItems.push(itemForTray);
@@ -1161,25 +1169,51 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
 
     setInventoriesOptimistic(newInventories);
 
-    // --- 3. Save to Firestore ---
+    // Save to Firestore
     const batch = writeBatch(db);
     const sourcePlayerInvRef = doc(db, "campaigns", campaignId, "inventories", sourcePlayerId);
     const targetPlayerInvRef = doc(db, "campaigns", campaignId, "inventories", targetPlayerId);
 
-    // Update all potentially changed fields for both players
-    batch.update(sourcePlayerInvRef, { trayItems: newInventories[sourcePlayerId].trayItems || [] });
-    Object.values(newInventories[sourcePlayerId].containers).forEach(c => batch.update(doc(sourcePlayerInvRef, 'containers', c.id), { gridItems: c.gridItems || [], trayItems: c.trayItems || [] }));
+    // Log the payload we are about to save
+    console.log("Saving Source Updates:", {
+        trayItems: newInventories[sourcePlayerId].trayItems,
+        equippedItems: newInventories[sourcePlayerId].equippedItems
+    });
+
+    // Update ALL fields to ensure the removal persists
+    batch.update(sourcePlayerInvRef, { 
+        trayItems: newInventories[sourcePlayerId].trayItems || [],
+        equippedItems: newInventories[sourcePlayerId].equippedItems || [] 
+    });
+    if (newInventories[sourcePlayerId].containers) {
+        Object.values(newInventories[sourcePlayerId].containers).forEach(c => {
+            batch.update(doc(sourcePlayerInvRef, 'containers', c.id), { 
+                gridItems: c.gridItems || [], 
+                trayItems: c.trayItems || [] 
+            });
+        });
+    }
     
-    batch.update(targetPlayerInvRef, { trayItems: newInventories[targetPlayerId].trayItems || [] });
-    Object.values(newInventories[targetPlayerId].containers).forEach(c => batch.update(doc(targetPlayerInvRef, 'containers', c.id), { gridItems: c.gridItems || [], trayItems: c.trayItems || [] }));
+    // UPDATE TARGET
+    batch.update(targetPlayerInvRef, { 
+        trayItems: newInventories[targetPlayerId].trayItems || [],
+        equippedItems: newInventories[targetPlayerId].equippedItems || [] 
+    });
+    if (newInventories[targetPlayerId].containers) {
+        Object.values(newInventories[targetPlayerId].containers).forEach(c => {
+            batch.update(doc(targetPlayerInvRef, 'containers', c.id), { 
+                gridItems: c.gridItems || [], 
+                trayItems: c.trayItems || []
+            });
+        });
+    }
 
     try {
       await batch.commit();
       const targetName = targetInventory.characterName || playerProfiles[targetPlayerId]?.displayName;
       toast.success(`Sent ${item.name} to ${targetName}.`);
     } catch (error) {
-      toast.error("Failed to send item. Reverting.");
-      console.error("Firestore batch write failed:", error);
+      toast.error("Failed to send item.");
       setInventoriesOptimistic(originalInventories);
     }
   };

@@ -4,6 +4,7 @@ import { collection, addDoc, doc, setDoc, getDoc, query, where, getDocs, deleteD
 import { db, auth } from '../firebase';
 import JoinCampaign from './JoinCampaign';
 import WhatsNewModal, { whatsNewConfig } from './WhatsNewModal';
+import { generateJoinCode } from '../utils/codeGenerator'; // Import the new generator
 
 const BuyMeACoffeeButton = () => (
   <a 
@@ -96,7 +97,31 @@ export default function CampaignSelector({ onCampaignSelected }) {
     const currentUser = auth.currentUser;
 
     try {
-      const campaignDocRef = await addDoc(collection(db, "campaigns"), {
+      // 1. Generate a human-readable ID
+      let customId = generateJoinCode();
+      let isUnique = false;
+      let attempts = 0;
+
+      // 2. Ensure it's unique (retry up to 5 times)
+      while (!isUnique && attempts < 5) {
+        const docRef = doc(db, 'campaigns', customId);
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists()) {
+          isUnique = true;
+        } else {
+          customId = generateJoinCode(); // Try again
+          attempts++;
+        }
+      }
+
+      if (!isUnique) {
+        toast.error("Could not generate a unique code. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      // 3. Create the campaign with the custom ID using setDoc
+      await setDoc(doc(db, "campaigns", customId), {
         dmId: currentUser.uid,
         name: campaignName,
         players: [currentUser.uid],
@@ -106,7 +131,7 @@ export default function CampaignSelector({ onCampaignSelected }) {
         }
       });
 
-      const inventoryDocRef = doc(db, "campaigns", campaignDocRef.id, "inventories", currentUser.uid);
+      const inventoryDocRef = doc(db, "campaigns", customId, "inventories", currentUser.uid);
       await setDoc(inventoryDocRef, {
         characterName: "DM",
         ownerId: currentUser.uid,
@@ -121,7 +146,7 @@ export default function CampaignSelector({ onCampaignSelected }) {
         gridHeight: 5,
       });
 
-      onCampaignSelected(campaignDocRef.id);
+      onCampaignSelected(customId);
 
     } catch (error) {
       console.error("Error creating campaign: ", error);
