@@ -6,36 +6,27 @@ import React from 'react';
 // 2. Set the 'expiryDate' for when the message should stop appearing.
 // 3. Update the 'title' and 'content'.
 export const whatsNewConfig = {
-  version: '2025-09-16', // Unique ID for this message. Change for new messages.
-  expiryDate: '2025-10-01', // Date to stop showing this. Format: YYYY-MM-DD
-  title: "Version 2.10.2: Listening to feedbacks",
+  version: '2025-12-05', // Updated version ID
+  expiryDate: '2025-12-30', // Show for 2 weeks
+  title: "Version 2.11.0: Treasure & Loot Update",
   content: (
     <div className="space-y-4 text-text-base/90 text-sm">
-      <p>Welcome to the latest version of REInventory! Based on your valuable feedback, I've introduced some major updates to make your D&D inventory management even smoother! This update includes new features for both players and Dungeon Masters, a more intuitive encumbrance system, and new customization options.</p>
+      <p>This update brings some long-awaited features for managing your party's wealth and handling the spoils of war!</p>
       
-      <h2 className="text-lg font-fantasy text-accent pt-2">Simplified Encumberance</h2>
-      <p>The app now calculates your character's maximum weight for you. Simply input your character's Strength and Size in the Character & Inventory Settings menu, and you're good to go!</p>
+      <h2 className="text-lg font-fantasy text-accent pt-2">Currency Wallet</h2>
+      <p>Every inventory now has a dedicated <strong>Coin Pouch</strong>! You can track Gold (GP), Silver (SP), and Copper (CP) directly from your inventory header. Click on the coins to update your balance.</p>
       
-      <h2 className="text-lg font-fantasy text-accent pt-2">Upgraded Gear</h2>
-      <p>Weapons and armor are now smarter! Just add a "+1" to their name, and the app will automatically apply the stat bonuses.</p>
-      
-      <h2 className="text-lg font-fantasy text-accent pt-2">DM Character Inventories</h2>
-      <p>DMs can now create and manage their own character inventories directly within a campaign.</p>
+      <h2 className="text-lg font-fantasy text-accent pt-2">The Loot Pile</h2>
+      <p>DMs can now add items to a shared <strong>Loot Pile</strong> at the top of the campaign view. It acts as a shared stash where DMs drop items and players can take what they want. DMs can toggle its visibility to "reveal" the loot after a battle!</p>
 
-      <h2 className="text-lg font-fantasy text-accent pt-2">Campaign Management</h2>
-      <p>Dungeon Masters now have more control! You can now edit campaign names and set the default starting backpack size for new characters.</p>
+      <h2 className="text-lg font-fantasy text-accent pt-2">Readable Join Codes</h2>
+      <p>No more typing random characters! New campaigns now generate easy-to-read codes (like <em>ancient-red-dragon</em>) to make joining adventures easier for your players.</p>
 
-      <h2 className="text-lg font-fantasy text-accent pt-2">Hidden Magic Properties</h2>
-      <p>Dungeon Masters can now add secret "magic properties" to items that remain hidden from players until they are revealed.</p>
-
-      <h2 className="text-lg font-fantasy text-accent pt-2">Item Icons</h2>
-      <p>We've added a new way to organize your inventory! You can now give each item an icon to help you quickly find what you're looking for.</p>
-    
-      <h2 className="text-lg font-fantasy text-accent pt-2">Equipping Items</h2>
-      <p>Items can now be equipped by characters, equipped items will still affect the total weight but won't fill the inventory. You can choose to show or hide equipped items.</p>
-
-      <h2 className="text-lg font-fantasy text-accent pt-2">Bug fixes and stability improvements</h2>
-      
+      <h2 className="text-lg font-fantasy text-accent pt-2">Bug Fixes</h2>
+      <ul className="list-disc pl-5 space-y-1">
+        <li>Fixed a critical bug where sending "Equipped" items to another player would duplicate them.</li>
+        <li>Improved drag-and-drop interactions around the equipped items tray.</li>
+      </ul>
     </div>
   ),
 };
@@ -65,7 +56,7 @@ export default function WhatsNewModal({ onClose }) {
             onClick={onClose} 
             className="bg-primary hover:bg-accent hover:text-background text-text-base font-bold py-2 px-4 rounded transition-colors duration-200"
           >
-            Got it!
+            Let's Play!
           </button>
         </div>
       </div>
