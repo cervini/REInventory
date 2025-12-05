@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { db } from '../firebase';
-import { doc, onSnapshot, collection } from 'firebase/firestore';
+import { doc, onSnapshot, collection, updateDoc, setDoc } from 'firebase/firestore'; // <--- Added updateDoc
 
 export const useCampaignStore = create((set, get) => ({
   // --- STATE ---
@@ -32,7 +32,8 @@ export const useCampaignStore = create((set, get) => ({
     // --- Main Campaign Listener ---
     const campaignDocRef = doc(db, 'campaigns', campaignId);
     const campaignUnsub = onSnapshot(campaignDocRef, (campaignDoc) => {
-      set({ campaignData: campaignDoc.exists() ? campaignDoc.data() : null });
+      // Include the ID in the data object so campaign.id is accessible in UI
+      set({ campaignData: campaignDoc.exists() ? { id: campaignDoc.id, ...campaignDoc.data() } : null });
     }, (err) => {
       console.error("Error fetching campaign:", err);
       set({ error: 'Failed to fetch campaign.', isLoading: false });
@@ -42,7 +43,7 @@ export const useCampaignStore = create((set, get) => ({
     const inventoriesColRef = collection(db, 'campaigns', campaignId, 'inventories');
     const inventoriesUnsub = onSnapshot(inventoriesColRef, (invSnapshot) => {
       const currentListeners = get().containerListeners;
-      const newInventories = get().inventories;
+      const newInventories = { ...get().inventories };
       const allPlayerIds = invSnapshot.docs.map(d => d.id);
 
       // Unsubscribe from players who left
@@ -91,6 +92,18 @@ export const useCampaignStore = create((set, get) => ({
   },
 
   /**
+   * Updates the currency for a specific player.
+   * @param {string} campaignId 
+   * @param {string} playerId 
+   * @param {object} newCurrency - { gp: number, sp: number, cp: number }
+   */
+  updateCurrency: async (campaignId, playerId, newCurrency) => {
+    if (!campaignId || !playerId) throw new Error("Missing ID");
+    const invRef = doc(db, 'campaigns', campaignId, 'inventories', playerId);
+    await updateDoc(invRef, { currency: newCurrency });
+  },
+
+  /**
    * Cleans up all Firestore listeners.
    */
   clearCampaign: () => {
@@ -115,5 +128,30 @@ export const useCampaignStore = create((set, get) => ({
    */
   setInventoriesOptimistic: (newInventories) => {
     set({ inventories: newInventories });
+  },
+
+  /**
+   * Toggles whether the loot pile is visible to non-DM players.
+   */
+  toggleLootPileVisibility: async (campaignId, currentVisibility) => {
+    if (!campaignId) return;
+    const lootRef = doc(db, 'campaigns', campaignId, 'inventories', 'public-loot');
+    await updateDoc(lootRef, { isVisibleToPlayers: !currentVisibility });
+  },
+
+  /**
+   * Ensures the public loot inventory exists.
+   */
+  createLootPile: async (campaignId) => {
+    if (!campaignId) return;
+    const lootRef = doc(db, 'campaigns', campaignId, 'inventories', 'public-loot');
+    // Using setDoc with merge: true is safe; it won't overwrite if it exists
+    await setDoc(lootRef, {
+        characterName: "Loot Pile",
+        ownerId: "public-loot",
+        trayItems: [], // Items on the 'ground' of the loot pile
+        isLootPile: true, // Marker to help UI identify it
+        currency: { gp: 0, sp: 0, cp: 0 } // Loot piles can have money too!
+    }, { merge: true });
   },
 }));

@@ -73,6 +73,7 @@ export default function JoinCampaign({ campaignId, onClose, onJoinSuccess, isDMA
           strength: 10,
           size: 'Medium',
           useCalculatedWeight: true,
+          currency: { gp: 0, sp: 0, cp: 0 },
         });
 
         const backpackRef = doc(inventoryDocRef, "containers", "backpack");
@@ -96,9 +97,10 @@ export default function JoinCampaign({ campaignId, onClose, onJoinSuccess, isDMA
         await setDoc(inventoryDocRef, {
           characterName: characterName.trim(),
           ownerId: currentUser.uid,
-          trayItems: startingItems, // <-- Correct location
+          trayItems: startingItems,
           totalMaxWeight: 100,
-          weightUnit: 'lbs'
+          weightUnit: 'lbs',
+          currency: { gp: 0, sp: 0, cp: 0 },
         });
         
         const backpackRef = doc(inventoryDocRef, "containers", "backpack");
