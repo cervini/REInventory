@@ -27,6 +27,7 @@ export default function ItemTray({ playerId, items, onContextMenu, isDM, contain
       <div 
         ref={setNodeRef} 
         className={`flex gap-2 rounded-md transition-colors duration-200 ${isOver ? 'bg-accent/10' : ''} ${layout === 'vertical' ? 'flex-col' : 'flex-wrap items-center min-h-[6rem]'}`}
+        style={{ pointerEvents: disabled ? 'none' : 'auto' }} // Extra safety
       >
         {items.length === 0 && (
           <p className="text-text-muted text-sm px-4 font-fantasy italic w-full text-center">{emptyMessage || 'There is nothing on the ground.'}</p>
@@ -36,12 +37,13 @@ export default function ItemTray({ playerId, items, onContextMenu, isDM, contain
             <InventoryItem
               item={item}
               containerId={containerId}
-              onContextMenu={(e, item, itemSource) => onContextMenu(e, item, playerId, itemSource, containerId)}
+              onContextMenu={(e, item, itemSource) => !disabled && onContextMenu(e, item, playerId, itemSource, containerId)}
               playerId={playerId}
               isDM={isDM}
               source={source}
               isViewerDM={isViewerDM}
               cellSize={{ width: 80, height: 80 }}
+              disabled={disabled}
             />
           </div>
         ))}

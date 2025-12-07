@@ -21,15 +21,15 @@ import { usePlayerProfiles } from '../hooks/usePlayerProfiles';
 import CampaignLayout from './CampaignLayout';
 import WeightCounter from './WeightCounter';
 import Wallet from './Wallet';
+import { parseCostToCp, deductCurrency } from '../utils/currencyUtils';
 
 /**
  * Renders the complete inventory for a single player.
- * Now supports an 'isLootPile' mode for a cleaner look.
  */
 const PlayerInventory = ({
   playerId, inventoryData, campaign, playerProfiles, user,
   setEditingSettings, cellSizes, gridRefs, onContextMenu, onToggleEquipped, isEquippedVisible,
-  isLootPile = false // <--- NEW PROP
+  isLootPile = false
 }) => {
   // We use optional chaining (?.) to prevent errors if inventoryData is not ready.
   const containers = useMemo(() => Object.values(inventoryData?.containers || {}), [inventoryData]);
@@ -187,7 +187,6 @@ const PlayerInventory = ({
                     onContextMenu={onContextMenu}
                     playerId={playerId}
                     isViewerDM={isViewerDM}
-                    // 3. CHANGE EMPTY MESSAGE: Set custom message for loot pile
                     emptyMessage={isLootPile ? "Empty" : "There is nothing on the ground."}
                 />
               </div>
@@ -209,6 +208,9 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
     clearCampaign,
     createLootPile,
     toggleLootPileVisibility,
+    createMerchant,
+    deleteMerchant,
+    updateCurrency,
   } = useCampaignStore();
   
   const { playerProfiles, isLoading: profilesLoading } = usePlayerProfiles(campaignId);
@@ -245,32 +247,49 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
         .join(',');
   }, [inventories]);
 
-  const lootPileData = inventories['public-loot'];
+  // Group inventories by type
+  const { lootPileData, merchantData, playerInventories } = useMemo(() => {
+    const all = inventories || {};
+    const loot = all['public-loot'];
+    
+    const merchants = Object.values(all)
+        .filter(inv => inv.isMerchant)
+        .sort((a, b) => a.characterName.localeCompare(b.characterName));
 
-  const orderedAndVisibleInventories = useMemo(() => {
-    if (!user || !inventories || Object.keys(inventories).length === 0) return [];
-
-    const playerInventories = Object.fromEntries(
-        Object.entries(inventories).filter(([id]) => id !== 'public-loot')
+    const players = Object.fromEntries(
+        Object.entries(all).filter(([id, inv]) => id !== 'public-loot' && !inv.isMerchant)
     );
 
+    return { lootPileData: loot, merchantData: merchants, playerInventories: players };
+  }, [inventories]);
+
+  const orderedAndVisibleInventories = useMemo(() => {
+    if (!user || Object.keys(playerInventories).length === 0) return [];
+
+    // If I'm a player, only show ME
     if (!isDM) {
         const myInventory = playerInventories[user.uid];
         return myInventory ? [[user.uid, myInventory]] : [];
     }
     
+    // If no custom layout exists, show all players unsorted
     if (!campaign?.layout) {
       return Object.entries(playerInventories);
     }
+
     const { order = [], visible = {} } = campaign.layout;
+
+    // Map the saved order to the actual player data
     const ordered = order
-        .filter(id => id !== 'public-loot') 
         .map(playerId => ([playerId, playerInventories[playerId]]))
-        .filter(entry => entry[1]); 
+        .filter(entry => entry[1]); // Remove empty entries (e.g. if a player left or if it was the loot pile ID)
+    
+    // Note: If you want to show new players who aren't in the 'order' array yet,
+    // you would append them here. For now, we keep your existing logic:
     
     return ordered.filter(([playerId]) => visible[playerId] ?? true);
 
-  }, [campaign, inventories, user, isDM]);
+  }, [campaign, playerInventories, user, isDM]);
 
   /**
    * Sets the active trade, which triggers the Trade component to be rendered.
@@ -284,7 +303,7 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
     setShowEquipped(prev => ({ ...prev, [playerId]: !(prev[playerId] ?? false) }));
   };
 
-  // --- 4. RENAME LOOT PILE HANDLER ---
+  // --- RENAME LOOT PILE HANDLER ---
   const handleUpdateLootName = async (newName) => {
     if (!campaignId || !newName.trim()) return;
     try {
@@ -382,33 +401,46 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
   const handleContextMenu = (event, item, playerId, source, containerId) => {
     event.preventDefault();
 
-    // Prevent the "ghost click" that immediately closes the menu on mobile.
-    // When a long press ends (touchend), mobile browsers fire a synthetic click event.
-    // This prevents that click from happening, so our "click-outside" handler doesn't close the menu.
+    // Prevent the "ghost click" on mobile
     const preventGhostClick = (e) => {
       e.preventDefault();
       event.currentTarget.removeEventListener('touchend', preventGhostClick);
     };
     event.currentTarget.addEventListener('touchend', preventGhostClick);
     
+    // --- CONTEXT CHECKS ---
+    const targetInventory = inventories[playerId];
     const isDM = campaign?.dmId === user?.uid;
-    const availableActions = [];
     const isPlayerDM = campaign?.dmId === playerId;
     const isLootPile = playerId === 'public-loot';
+    const isMerchant = targetInventory?.isMerchant || false; // <--- Check for Merchant
 
-    const canEdit = (user.uid === playerId && !isLootPile) || isDM;
+    // Permission Logic: 
+    // You can edit if: (It's your own inventory AND not restricted) OR (You are the DM)
+    // Note: Players are never the owner of a merchant or loot pile, so this naturally blocks them.
+    const canEdit = (user.uid === playerId && !isLootPile && !isMerchant) || isDM;
 
-    if (!isPlayerDM && !isLootPile) {
+    const availableActions = [];
+
+    // --- ACTIONS ---
+
+    // 1. Equip / Unequip
+    // Block this for DM's inventory, Loot Piles, AND Merchants
+    if (!isPlayerDM && !isLootPile && !isMerchant) {
       if (source === 'equipped') {
         availableActions.push({
           label: 'Unequip',
           onClick: () => handleUnequipItem(item, playerId),
         });
       } else {
-        availableActions.push({ label: 'Equip', onClick: () => handleEquipItem(item, playerId, source, containerId) });
+        availableActions.push({ 
+          label: 'Equip', 
+          onClick: () => handleEquipItem(item, playerId, source, containerId) 
+        });
       }
     }
 
+    // 2. Reveal Magic (DM Only)
     if (isDM && item.magicProperties && !item.magicPropertiesVisible) {
       availableActions.push({
         label: 'Reveal Magic Properties',
@@ -416,6 +448,7 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
       });
     }
 
+    // 3. Rotate (Grid Items Only)
     if (source === 'grid') {
         availableActions.push({ 
             label: 'Rotate', 
@@ -423,13 +456,16 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
         });
     }
 
+    // 4. Send To... (DM Only)
     if (isDM) {
       const allPlayerIds = campaign?.players || [];
       const otherPlayers = allPlayerIds.filter(id => id !== playerId);
+      
       if (otherPlayers.length > 0) {
         availableActions.push({
           label: 'Send to...',
           submenu: otherPlayers.map(targetId => ({
+            // Show Character Name -> Profile Name -> ID
             label: inventories[targetId]?.characterName || playerProfiles[targetId]?.displayName || targetId,
             onClick: () => handleSendItem(item, source, playerId, targetId, containerId, isPlayerDM),
           })),
@@ -437,26 +473,35 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
       }
     }
     
+    // 5. Split Stack (Requires Edit Permission)
     if (canEdit && item.stackable && item.quantity > 1) {
-      availableActions.push({ label: 'Split Stack', onClick: () => handleStartSplit(item, playerId, containerId) });
-    }
-    if(canEdit){
-      if (isDM || user.uid === playerId) {
-        availableActions.push({ 
-          label: 'Edit Item', 
-          onClick: () => handleStartEdit(item, playerId, containerId),
-        });
-        availableActions.push({ 
-          label: 'Duplicate Item', 
-          onClick: () => handleDuplicateItem(item, playerId),
-        });
-        availableActions.push({
-          label: 'Delete Item',
-          onClick: () => handleDeleteItem(item, playerId, source, containerId),
-        });
-      }
+      availableActions.push({ 
+        label: 'Split Stack', 
+        onClick: () => handleStartSplit(item, playerId, containerId) 
+      });
     }
 
+    // 6. Administrative Actions (Requires Edit Permission)
+    if (canEdit) {
+        // DM gets full access. Players get access only to their own stuff.
+        // We added a redundant check here just to be safe with the layout.
+        if (isDM || user.uid === playerId) {
+            availableActions.push({ 
+              label: 'Edit Item', 
+              onClick: () => handleStartEdit(item, playerId, containerId),
+            });
+            availableActions.push({ 
+              label: 'Duplicate Item', 
+              onClick: () => handleDuplicateItem(item, playerId),
+            });
+            availableActions.push({
+              label: 'Delete Item',
+              onClick: () => handleDeleteItem(item, playerId, source, containerId),
+            });
+        }
+    }
+
+    // --- RENDER ---
     const position = {
       x: event.touches ? event.touches[0].clientX : event.clientX,
       y: event.touches ? event.touches[0].clientY : event.clientY,
@@ -1003,6 +1048,29 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
         return; 
     }
 
+    // --- MERCHANT LOGIC (Buying) ---
+    const sourceInv = inventories[startPlayerId];
+    if (sourceInv?.isMerchant && startPlayerId !== endPlayerId) {
+        // We are dragging FROM a merchant TO someone else
+        const costInCp = parseCostToCp(item.cost);
+        const playerWallet = inventories[endPlayerId]?.currency || { gp: 0, sp: 0, cp: 0 };
+
+        if (costInCp > 0) {
+            // Check affordability
+            const newWallet = deductCurrency(playerWallet, costInCp);
+            
+            if (!newWallet) {
+                toast.error(`You cannot afford this item! Cost: ${item.cost}`);
+                setActiveItem(null); // Cancel drag visual
+                return; // STOP the drag
+            }
+
+            // Execute Payment
+            // Note: We use optimistic updates for the item, but let's fire the wallet update now
+            updateCurrency(campaignId, endPlayerId, newWallet);
+            toast.success(`Bought for ${item.cost}.`);
+        }
+    }
 
     let movedItem = null;
     const startPlayerInv = newInventories[startPlayerId];
@@ -1123,10 +1191,7 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
    * @param {string} sourceContainerId - The ID of the container the item is coming from.
    */
   const handleSendItem = async (item, source, sourcePlayerId, targetPlayerId, sourceContainerId, isSourcePlayerDM) => {
-
-    if (!item || !source || !sourcePlayerId || !targetPlayerId) {
-        return;
-    }
+    if (!item || !source || !sourcePlayerId || !targetPlayerId) return;
 
     const originalInventories = inventories;
     const newInventories = JSON.parse(JSON.stringify(inventories));
@@ -1134,57 +1199,41 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
     const sourceInventory = newInventories[sourcePlayerId];
     const targetInventory = newInventories[targetPlayerId];
 
-    if (!sourceInventory) {
+    if (!sourceInventory || !targetInventory) {
+        toast.error("Source or target inventory not found.");
         return;
     }
 
+    // --- 1. Remove from Source ---
     if (sourceInventory.equippedItems) {
         sourceInventory.equippedItems = sourceInventory.equippedItems.filter(i => i.id !== item.id);
     }
-
     if (sourceInventory.trayItems) {
          sourceInventory.trayItems = sourceInventory.trayItems.filter(i => i.id !== item.id);
     }
-
     if (sourceInventory.containers) {
         Object.values(sourceInventory.containers).forEach(container => {
-            if (container.gridItems) {
-                container.gridItems = container.gridItems.filter(i => i.id !== item.id);
-            }
-            if (container.trayItems) {
-                container.trayItems = container.trayItems.filter(i => i.id !== item.id);    
-            }
+            if (container.gridItems) container.gridItems = container.gridItems.filter(i => i.id !== item.id);
+            if (container.trayItems) container.trayItems = container.trayItems.filter(i => i.id !== item.id);    
         });
     }
     
+    // --- 2. Add to Target ---
     const { x, y, ...itemForTray } = item;
-    const isTargetDM = campaign?.dmId === targetPlayerId;
+    
+    // SIMPLIFIED: Always send to the main tray (Floor/Ground), whether it's a Player or DM.
+    if (!targetInventory.trayItems) targetInventory.trayItems = [];
+    targetInventory.trayItems.push(itemForTray);
 
-    if (isTargetDM) {
-      const targetContainer = Object.values(targetInventory.containers || {})[0];
-      if (targetContainer) {
-          if (!targetContainer.trayItems) targetContainer.trayItems = [];
-          targetContainer.trayItems.push(itemForTray);
-      }
-    } else {
-      if (!targetInventory.trayItems) targetInventory.trayItems = [];
-      targetInventory.trayItems.push(itemForTray);
-    }
-
+    // Optimistic Update
     setInventoriesOptimistic(newInventories);
 
-    // Save to Firestore
+    // --- 3. Save to Firestore ---
     const batch = writeBatch(db);
     const sourcePlayerInvRef = doc(db, "campaigns", campaignId, "inventories", sourcePlayerId);
     const targetPlayerInvRef = doc(db, "campaigns", campaignId, "inventories", targetPlayerId);
 
-    // Log the payload we are about to save
-    console.log("Saving Source Updates:", {
-        trayItems: newInventories[sourcePlayerId].trayItems,
-        equippedItems: newInventories[sourcePlayerId].equippedItems
-    });
-
-    // Update ALL fields to ensure the removal persists
+    // Update Source
     batch.update(sourcePlayerInvRef, { 
         trayItems: newInventories[sourcePlayerId].trayItems || [],
         equippedItems: newInventories[sourcePlayerId].equippedItems || [] 
@@ -1198,25 +1247,18 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
         });
     }
     
-    // UPDATE TARGET
+    // Update Target (We only need to update the main doc since we pushed to trayItems)
     batch.update(targetPlayerInvRef, { 
         trayItems: newInventories[targetPlayerId].trayItems || [],
         equippedItems: newInventories[targetPlayerId].equippedItems || [] 
     });
-    if (newInventories[targetPlayerId].containers) {
-        Object.values(newInventories[targetPlayerId].containers).forEach(c => {
-            batch.update(doc(targetPlayerInvRef, 'containers', c.id), { 
-                gridItems: c.gridItems || [], 
-                trayItems: c.trayItems || []
-            });
-        });
-    }
-
+    
     try {
       await batch.commit();
       const targetName = targetInventory.characterName || playerProfiles[targetPlayerId]?.displayName;
       toast.success(`Sent ${item.name} to ${targetName}.`);
     } catch (error) {
+      console.error("Failed to send item:", error);
       toast.error("Failed to send item.");
       setInventoriesOptimistic(originalInventories);
     }
@@ -1453,6 +1495,7 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
             easing: 'cubic-bezier(0.18, 1, 0.4, 1)',
         }}
       >
+        {/* Main Content Area */}
         <div className="w-full h-full flex flex-col flex-grow min-w-0 relative">
           {isDM && (
             <div className="w-full max-w-4xl flex justify-end mb-4 px-4 pt-4 mx-auto">
@@ -1507,13 +1550,11 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
                                 title={lootPileData.isVisibleToPlayers ? "Hide from players" : "Show to players"}
                             >
                                 {lootPileData.isVisibleToPlayers ? (
-                                    // Eye Open
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
                                       <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" />
                                       <path fillRule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 010-1.113zM17.25 12a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z" clipRule="evenodd" />
                                     </svg>
                                 ) : (
-                                    // Eye Slash
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
                                       <path d="M3.53 2.47a.75.75 0 00-1.06 1.06l18 18a.75.75 0 101.06-1.06l-18-18zM22.676 12.553a11.249 11.249 0 01-2.631 4.31l-3.099-3.099a5.25 5.25 0 00-6.71-6.71L7.759 4.577a11.217 11.217 0 014.242-.827c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113z" />
                                       <path d="M15.75 12c0 .18-.013.357-.037.53l-4.244-4.243A3.75 3.75 0 0115.75 12zM12.53 15.713l-4.243-4.244a3.75 3.75 0 004.243 4.243z" />
@@ -1561,6 +1602,50 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
               </div>
             )}
 
+            {/* --- MERCHANT SECTION --- */}
+            {merchantData.length > 0 && (
+                <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {merchantData.map(merchant => (
+                        <div key={merchant.ownerId} className="border-4 border-slate-700/50 rounded-xl overflow-hidden shadow-2xl bg-black/20">
+                            <div className="bg-slate-800/90 p-3 text-center border-b border-slate-600/50 flex justify-between items-center">
+                                <h2 className="text-xl font-fantasy text-slate-200 tracking-widest drop-shadow-md">
+                                    {merchant.characterName} (Shop)
+                                </h2>
+                                {isDM && (
+                                    <button 
+                                        onClick={() => {
+                                            if (window.confirm(`Delete shop "${merchant.characterName}"? Items inside will be lost.`)) {
+                                                deleteMerchant(campaignId, merchant.ownerId);
+                                            }
+                                        }}
+                                        className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
+                                        title="Delete Shop"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                                          <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
+                            <PlayerInventory
+                                playerId={merchant.ownerId}
+                                inventoryData={merchant}
+                                campaign={campaign}
+                                playerProfiles={{}}
+                                user={user}
+                                setEditingSettings={() => {}}
+                                cellSizes={cellSizes}
+                                gridRefs={gridRefs}
+                                onContextMenu={handleContextMenu}
+                                onToggleEquipped={() => {}}
+                                isEquippedVisible={false}
+                                isLootPile={true} // Reuse the "clean" styling
+                            />
+                        </div>
+                    ))}
+                </div>
+            )}
+
             {orderedAndVisibleInventories.map(([playerId, inventoryData]) => (
               <PlayerInventory
                 key={playerId}
@@ -1578,6 +1663,7 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
               />
             ))}
           </div>
+          {/* --- Floating Action Buttons --- */}
           <div className="fixed z-10 bottom-4 right-4 sm:bottom-8 sm:right-8 flex flex-row sm:flex-col space-x-2 sm:space-x-0 sm:space-y-2">
             <button
               onClick={() => setShowCompendium(true)}
@@ -1598,6 +1684,22 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
             </button>
+            {/* Add Merchant Button (DM Only) */}
+            {isDM && (
+                <button
+                  onClick={() => {
+                      const name = prompt("Enter Shop Name (e.g. 'Village Smithy'):");
+                      if (name) createMerchant(campaignId, name);
+                  }}
+                  className="bg-surface/80 backdrop-blur-sm border border-amber-600/50 text-amber-500 hover:bg-amber-600 hover:text-white rounded-full p-3 sm:p-4 shadow-lg transition-all"
+                  aria-label="Create Merchant"
+                  title="Create New Shop"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72l1.189-1.19A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .415.336.75.75.75z" />
+                  </svg>
+                </button>
+            )}
           </div>
         </div>
         <DragOverlay>

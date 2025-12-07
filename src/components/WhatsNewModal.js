@@ -6,27 +6,29 @@ import React from 'react';
 // 2. Set the 'expiryDate' for when the message should stop appearing.
 // 3. Update the 'title' and 'content'.
 export const whatsNewConfig = {
-  version: '2025-12-05', // Updated version ID
-  expiryDate: '2025-12-30', // Show for 2 weeks
-  title: "Version 2.11.0: Treasure & Loot Update",
+  version: '2025-12-07', // Updated for the Merchant release
+  expiryDate: '2025-12-21', // Show for 2 weeks
+  title: "Version 2.13.0: Open for Business!",
   content: (
     <div className="space-y-4 text-text-base/90 text-sm">
-      <p>This update brings some long-awaited features for managing your party's wealth and handling the spoils of war!</p>
+      <p>The economy has arrived! This update introduces a full Merchant system, making shopping trips faster and easier than ever.</p>
       
-      <h2 className="text-lg font-fantasy text-accent pt-2">Currency Wallet</h2>
-      <p>Every inventory now has a dedicated <strong>Coin Pouch</strong>! You can track Gold (GP), Silver (SP), and Copper (CP) directly from your inventory header. Click on the coins to update your balance.</p>
+      <h2 className="text-lg font-fantasy text-accent pt-2">Merchants & Shops</h2>
+      <p>DMs can now create <strong>Merchant Inventories</strong> (like a Blacksmith or General Store). When players drag an item from a shop to their inventory, the gold cost is automatically deducted from their wallet!</p>
       
-      <h2 className="text-lg font-fantasy text-accent pt-2">The Loot Pile</h2>
-      <p>DMs can now add items to a shared <strong>Loot Pile</strong> at the top of the campaign view. It acts as a shared stash where DMs drop items and players can take what they want. DMs can toggle its visibility to "reveal" the loot after a battle!</p>
+      <h2 className="text-lg font-fantasy text-accent pt-2">Loot Pile Upgrades</h2>
+      <p>The Loot Pile has been redesigned with a cleaner look. It now clearly shows when it is empty and blends seamlessly into the game board.</p>
 
-      <h2 className="text-lg font-fantasy text-accent pt-2">Readable Join Codes</h2>
-      <p>No more typing random characters! New campaigns now generate easy-to-read codes (like <em>ancient-red-dragon</em>) to make joining adventures easier for your players.</p>
+      <h2 className="text-lg font-fantasy text-accent pt-2">DM Tools</h2>
+      <p>Dungeon Masters have new controls to manage the world economy:</p>
+      <ul className="list-disc pl-5 space-y-1">
+        <li>Create and Delete Shops on the fly.</li>
+        <li>Rename the Loot Pile (e.g., "Dragon's Hoard").</li>
+        <li>Toggle Loot Pile visibility for players.</li>
+      </ul>
 
       <h2 className="text-lg font-fantasy text-accent pt-2">Bug Fixes</h2>
-      <ul className="list-disc pl-5 space-y-1">
-        <li>Fixed a critical bug where sending "Equipped" items to another player would duplicate them.</li>
-        <li>Improved drag-and-drop interactions around the equipped items tray.</li>
-      </ul>
+      <p>Fixed issues with item duplication when moving equipped gear and improved container interactions for the DM.</p>
     </div>
   ),
 };

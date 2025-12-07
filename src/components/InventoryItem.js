@@ -7,30 +7,26 @@ import DynamicIcon from './DynamicIcon';
 
 /**
  * Renders a single draggable and droppable inventory item.
- * It handles its own position in a grid or tray, visibility while dragging,
- * and displays a detailed tooltip on hover.
- * @param {object} props - The component props.
- * @param {object} props.item - The item data object.
- * @param {Function} props.onContextMenu - The context menu handler.
- * @param {string} props.playerId - The ID of the player who owns the item.
- * @param {('grid'|'tray'|'equipped')} props.source - The location of the item.
- * @param {object} props.cellSize - The calculated size of a grid cell.
- * @param {string} props.containerId - The ID of the container holding the item.
- * @returns {JSX.Element}
+ * Now supports a 'disabled' prop to prevent interaction when hidden.
  */
-export default function InventoryItem({ item, onContextMenu, playerId, source, cellSize, containerId, isViewerDM }) {
+export default function InventoryItem({ item, onContextMenu, playerId, source, cellSize, containerId, isViewerDM, disabled = false }) {
+  
   const { attributes, listeners, setNodeRef: setDraggableNodeRef, transform, isDragging } = useDraggable({
     id: item.id,
     data: { ownerId: playerId, item, source, containerId },
+    disabled: disabled, // <--- Disable dragging
   });
 
   const { setNodeRef: setDroppableNodeRef } = useDroppable({
     id: item.id,
     data: { ownerId: playerId, item, source, containerId },
+    disabled: disabled, // <--- Disable dropping onto this item
   });
 
   const longPressProps = useLongPress(
-    (e) => onContextMenu(e, item, source),
+    (e) => {
+      if (!disabled) onContextMenu(e, item, source);
+    },
     500
   );
 
@@ -45,6 +41,10 @@ export default function InventoryItem({ item, onContextMenu, playerId, source, c
     zIndex: isDragging ? 20 : 10,
     width: (source === 'tray' || source === 'equipped') ? '100%' : undefined,
     height: (source === 'tray' || source === 'equipped') ? '100%' : undefined,
+    
+    // Optional: visual cue that it's disabled (though usually it's hidden anyway)
+    opacity: disabled ? 0.5 : 1,
+    pointerEvents: disabled ? 'none' : 'auto', 
   };
 
   const effectiveCellWidth = cellSize?.width > 0 ? cellSize.width : 80;
@@ -59,8 +59,9 @@ export default function InventoryItem({ item, onContextMenu, playerId, source, c
       }}
       style={style}
       className="relative flex"
-      data-tooltip-id="item-tooltip"
-      data-tooltip-html={generateItemTooltip(item, isViewerDM)}
+      // Only show tooltip if not disabled
+      data-tooltip-id={disabled ? undefined : "item-tooltip"}
+      data-tooltip-html={disabled ? undefined : generateItemTooltip(item, isViewerDM)}
       {...longPressProps}
     >
       <div

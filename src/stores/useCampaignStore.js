@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { db } from '../firebase';
-import { doc, onSnapshot, collection, updateDoc, setDoc } from 'firebase/firestore'; // <--- Added updateDoc
+import { doc, onSnapshot, collection, updateDoc, setDoc, deleteDoc } from 'firebase/firestore'; // <--- Added updateDoc
 
 export const useCampaignStore = create((set, get) => ({
   // --- STATE ---
@@ -43,17 +43,27 @@ export const useCampaignStore = create((set, get) => ({
     const inventoriesColRef = collection(db, 'campaigns', campaignId, 'inventories');
     const inventoriesUnsub = onSnapshot(inventoriesColRef, (invSnapshot) => {
       const currentListeners = get().containerListeners;
+      
+      // Create a shallow copy so React detects state changes
       const newInventories = { ...get().inventories };
+      
       const allPlayerIds = invSnapshot.docs.map(d => d.id);
 
-      // Unsubscribe from players who left
-      Object.keys(currentListeners).forEach(playerId => {
-        if (!allPlayerIds.includes(playerId)) {
-          currentListeners[playerId]();
-          delete currentListeners[playerId];
+      // --- FIX: Remove deleted inventories from local state ---
+      Object.keys(newInventories).forEach(inventoryId => {
+        if (!allPlayerIds.includes(inventoryId)) {
+          // 1. Delete from state object
+          delete newInventories[inventoryId];
+          
+          // 2. Unsubscribe from its container listeners (cleanup)
+          if (currentListeners[inventoryId]) {
+            currentListeners[inventoryId]();
+            delete currentListeners[inventoryId];
+          }
         }
       });
       
+      // --- Handle Updates & Additions ---
       invSnapshot.forEach(invDoc => {
         const playerId = invDoc.id;
         const invData = invDoc.data();
@@ -70,13 +80,18 @@ export const useCampaignStore = create((set, get) => ({
               playerContainers[containerDoc.id] = { id: containerDoc.id, ...containerDoc.data() };
             });
             
-            // Update the state with the new container data for this player
-            set(state => ({
-              inventories: {
-                ...state.inventories,
-                [playerId]: { ...state.inventories[playerId], containers: playerContainers },
-              }
-            }));
+            // Update the state with the new container data
+            set(state => {
+                // Safety check: if the player was deleted while this listener fired
+                if (!state.inventories[playerId]) return state;
+                
+                return {
+                  inventories: {
+                    ...state.inventories,
+                    [playerId]: { ...state.inventories[playerId], containers: playerContainers },
+                  }
+                };
+            });
           });
         }
       });
@@ -153,5 +168,32 @@ export const useCampaignStore = create((set, get) => ({
         isLootPile: true, // Marker to help UI identify it
         currency: { gp: 0, sp: 0, cp: 0 } // Loot piles can have money too!
     }, { merge: true });
+  },
+
+  /**
+   * Creates a new Merchant inventory.
+   */
+  createMerchant: async (campaignId, merchantName) => {
+    if (!campaignId || !merchantName) return;
+    
+    const merchantId = `merchant-${crypto.randomUUID()}`;
+    const merchantRef = doc(db, 'campaigns', campaignId, 'inventories', merchantId);
+    
+    await setDoc(merchantRef, {
+        characterName: merchantName,
+        ownerId: merchantId, // Owned by itself/system
+        trayItems: [],
+        isMerchant: true, // <--- The magic flag
+        currency: { gp: 0, sp: 0, cp: 0 } // Merchants have infinite money logic-wise, but we keep structure
+    });
+  },
+
+  /**
+   * Deletes a merchant inventory.
+   */
+  deleteMerchant: async (campaignId, merchantId) => {
+    if (!campaignId || !merchantId) return;
+    const merchantRef = doc(db, 'campaigns', campaignId, 'inventories', merchantId);
+    await deleteDoc(merchantRef);
   },
 }));
