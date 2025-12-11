@@ -737,13 +737,10 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
     let finalPlayerId;
 
     if (itemToEdit) {
-      // Case 1: We are editing an existing item. The owner is fixed.
       finalPlayerId = itemToEdit.playerId;
     } else if (targetPlayerId && isDM) {
-      // Case 2: The DM is adding an item from the compendium to a specific player.
       finalPlayerId = targetPlayerId;
     } else {
-      // Case 3: A player is creating a new item for themselves, OR the DM is creating one for themself.
       finalPlayerId = user.uid;
     }
 
@@ -755,14 +752,13 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
     const playerInventory = inventories[finalPlayerId];
     const isTargetDM = campaign?.dmId === finalPlayerId;
 
-    // --- Item Editing Logic ---
+    // --- 1. EDIT EXISTING ITEM ---
     if (itemToEdit) {
       const { item: originalItem, containerId } = itemToEdit;
       
-      // Check if the item is in a grid (and not the DM's special tray)
+      // A. Item is in a GRID (and not the main tray)
       if (containerId && containerId !== 'tray' && !isTargetDM) {
         
-        // --- Logic for items in a container's grid (with size checks) ---
         const container = playerInventory.containers[containerId];
         const otherItems = container.gridItems.filter(i => i.id !== originalItem.id);
         const updatedItem = { ...originalItem, ...itemData };
@@ -780,12 +776,12 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
             const newSlot = findFirstAvailableSlot(otherItems, updatedItem, container.gridWidth, container.gridHeight);
             if (newSlot) {
                 finalGridItems = [...otherItems, { ...updatedItem, ...newSlot }];
-                toast.success(`${itemData.name} was updated and moved to a new slot.`);
+                toast.success(`Updated ${itemData.name} and moved.`);
             } else {
                 const { x, y, ...trayItem } = updatedItem;
-                finalGridItems = otherItems; // Remove from grid
+                finalGridItems = otherItems;
                 finalTrayItems.push(trayItem);
-                toast.error(`No space for the new size. Moved ${itemData.name} to the tray.`);
+                toast.error(`Moved ${itemData.name} to tray.`);
             }
         }
 
@@ -797,16 +793,19 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
         await batch.commit();
 
       } else {
-        // --- Logic for items in a tray (no size checks needed) ---
-        const isDMItem = isTargetDM && containerId;
-        if (isDMItem) {
-            // DM's items are in a container's tray
+        // B. Item is in a TRAY (either main tray or a container's tray)
+        
+        // FIX: Only treat it as a DM Container Item if it is NOT the main 'tray'
+        const isSpecificContainer = containerId && containerId !== 'tray';
+
+        if (isTargetDM && isSpecificContainer) {
+            // Update item inside a specific DM container (e.g. Backpack)
             const container = playerInventory.containers[containerId];
             const updatedTrayItems = (container.trayItems || []).map(i => i.id === originalItem.id ? { ...i, ...itemData } : i);
             const containerDocRef = doc(db, "campaigns", campaignId, "inventories", finalPlayerId, "containers", containerId);
             await updateDoc(containerDocRef, { trayItems: updatedTrayItems });
         } else {
-            // Player's items are in the main tray
+            // Update item in the Main Tray (Floor/Ground) - For Players OR DM
             const updatedTrayItems = (playerInventory.trayItems || []).map(i => i.id === originalItem.id ? { ...i, ...itemData } : i);
             const playerInvRef = doc(db, "campaigns", campaignId, "inventories", finalPlayerId);
             await updateDoc(playerInvRef, { trayItems: updatedTrayItems });
@@ -814,41 +813,26 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
         toast.success(`Updated ${itemData.name}.`);
       }
     }  
-    // --- Item Creation Logic ---
+    // --- 2. CREATE NEW ITEM ---
     else {
       const originalInventories = inventories;
       const newInventories = JSON.parse(JSON.stringify(inventories));
       const targetInv = newInventories[finalPlayerId];
-      let firestorePromise;
+      
+      // FIX: UNIFIED LOGIC. Always add to the main 'trayItems' for everyone.
+      if (!targetInv.trayItems) targetInv.trayItems = [];
+      targetInv.trayItems.push(itemData);
 
-      if (isTargetDM) {
-        // If the target is the DM, add to their first container's tray.
-        const defaultContainer = Object.values(targetInv.containers || {})[0];
-        if (!defaultContainer) {
-          toast.error("DM has no containers to add items to!");
-          return;
-        }
-        if (!defaultContainer.trayItems) defaultContainer.trayItems = [];
-        defaultContainer.trayItems.push(itemData);
-        
-        const containerDocRef = doc(db, "campaigns", campaignId, "inventories", finalPlayerId, "containers", defaultContainer.id);
-        firestorePromise = updateDoc(containerDocRef, { trayItems: defaultContainer.trayItems });
-
-      } else {
-        // If the target is a player, add to their main shared tray.
-        if (!targetInv.trayItems) targetInv.trayItems = [];
-        targetInv.trayItems.push(itemData);
-
-        const inventoryDocRef = doc(db, "campaigns", campaignId, "inventories", finalPlayerId);
-        firestorePromise = setDoc(inventoryDocRef, { trayItems: targetInv.trayItems }, { merge: true });
-      }
+      const inventoryDocRef = doc(db, "campaigns", campaignId, "inventories", finalPlayerId);
+      // Use setDoc with merge to be safe, it works for both updates and creates
+      const firestorePromise = setDoc(inventoryDocRef, { trayItems: targetInv.trayItems }, { merge: true });
       
       setInventoriesOptimistic(newInventories);
       
       try {
         await firestorePromise;
         const targetName = playerInventory?.characterName || playerProfiles[finalPlayerId]?.displayName;
-        toast.success(`Added ${itemData.name} to ${targetName}'s inventory.`);
+        toast.success(`Added ${itemData.name} to ${targetName}.`);
       } catch (error) {
         toast.error("Failed to add item. Reverting changes.");
         console.error("Firestore write failed:", error);
