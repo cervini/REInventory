@@ -303,7 +303,6 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
     setShowEquipped(prev => ({ ...prev, [playerId]: !(prev[playerId] ?? false) }));
   };
 
-  // --- RENAME LOOT PILE HANDLER ---
   const handleUpdateLootName = async (newName) => {
     if (!campaignId || !newName.trim()) return;
     try {
@@ -750,17 +749,39 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
     }
 
     const playerInventory = inventories[finalPlayerId];
+    if (!playerInventory) {
+        toast.error("Target inventory not found.");
+        return;
+    }
+
     const isTargetDM = campaign?.dmId === finalPlayerId;
 
     // --- 1. EDIT EXISTING ITEM ---
     if (itemToEdit) {
       const { item: originalItem, containerId } = itemToEdit;
       
-      // A. Item is in a GRID (and not the main tray)
-      if (containerId && containerId !== 'tray' && !isTargetDM) {
+      // CASE A: Item is EQUIPPED
+      if (containerId === 'equipped') {
+          const { x, y, ...itemForEquip } = { ...originalItem, ...itemData };
+          const updatedEquippedItems = (playerInventory.equippedItems || []).map(i => i.id === originalItem.id ? itemForEquip : i);
+          
+          const playerInvRef = doc(db, "campaigns", campaignId, "inventories", finalPlayerId);
+          await updateDoc(playerInvRef, { equippedItems: updatedEquippedItems });
+          toast.success(`Updated ${itemData.name}.`);
+      }
+      
+      // CASE B: Item is in a GRID (Standard Player Container)
+      else if (containerId && containerId !== 'tray' && !isTargetDM) {
         
-        const container = playerInventory.containers[containerId];
-        const otherItems = container.gridItems.filter(i => i.id !== originalItem.id);
+        // SAFEGUARD: Check if container exists
+        const container = playerInventory.containers?.[containerId];
+        if (!container) {
+            console.error("Critical Error: Container not found during edit.", { containerId, finalPlayerId });
+            toast.error("Error: Container not found. Try refreshing.");
+            return;
+        }
+
+        const otherItems = (container.gridItems || []).filter(i => i.id !== originalItem.id);
         const updatedItem = { ...originalItem, ...itemData };
 
         const canStayInPlace = !outOfBounds(updatedItem.x, updatedItem.y, updatedItem, container.gridWidth, container.gridHeight) &&
@@ -770,7 +791,7 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
         let finalTrayItems = [...(playerInventory.trayItems || [])];
 
         if (canStayInPlace) {
-            finalGridItems = container.gridItems.map(i => i.id === originalItem.id ? updatedItem : i);
+            finalGridItems = (container.gridItems || []).map(i => i.id === originalItem.id ? updatedItem : i);
             toast.success(`Updated ${itemData.name}.`);
         } else {
             const newSlot = findFirstAvailableSlot(otherItems, updatedItem, container.gridWidth, container.gridHeight);
@@ -792,20 +813,24 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
         batch.update(playerInvRef, { trayItems: finalTrayItems });
         await batch.commit();
 
-      } else {
-        // B. Item is in a TRAY (either main tray or a container's tray)
-        
-        // FIX: Only treat it as a DM Container Item if it is NOT the main 'tray'
+      } 
+      
+      // CASE C: Item is in a TRAY (Main tray or DM Container)
+      else {
         const isSpecificContainer = containerId && containerId !== 'tray';
 
         if (isTargetDM && isSpecificContainer) {
-            // Update item inside a specific DM container (e.g. Backpack)
-            const container = playerInventory.containers[containerId];
+            // Update item inside a specific DM container
+            const container = playerInventory.containers?.[containerId];
+            if (!container) {
+                toast.error("DM Container not found.");
+                return;
+            }
             const updatedTrayItems = (container.trayItems || []).map(i => i.id === originalItem.id ? { ...i, ...itemData } : i);
             const containerDocRef = doc(db, "campaigns", campaignId, "inventories", finalPlayerId, "containers", containerId);
             await updateDoc(containerDocRef, { trayItems: updatedTrayItems });
         } else {
-            // Update item in the Main Tray (Floor/Ground) - For Players OR DM
+            // Update item in the Main Tray
             const updatedTrayItems = (playerInventory.trayItems || []).map(i => i.id === originalItem.id ? { ...i, ...itemData } : i);
             const playerInvRef = doc(db, "campaigns", campaignId, "inventories", finalPlayerId);
             await updateDoc(playerInvRef, { trayItems: updatedTrayItems });
@@ -819,12 +844,11 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
       const newInventories = JSON.parse(JSON.stringify(inventories));
       const targetInv = newInventories[finalPlayerId];
       
-      // FIX: UNIFIED LOGIC. Always add to the main 'trayItems' for everyone.
+      // Unified Logic: Always add to the main 'trayItems'
       if (!targetInv.trayItems) targetInv.trayItems = [];
       targetInv.trayItems.push(itemData);
 
       const inventoryDocRef = doc(db, "campaigns", campaignId, "inventories", finalPlayerId);
-      // Use setDoc with merge to be safe, it works for both updates and creates
       const firestorePromise = setDoc(inventoryDocRef, { trayItems: targetInv.trayItems }, { merge: true });
       
       setInventoriesOptimistic(newInventories);
