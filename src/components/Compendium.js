@@ -38,7 +38,10 @@ export default function Compendium({ onClose }) {
     });
 
     const customUnsubscribe = onSnapshot(collection(db, 'compendiums', currentUser.uid, 'masterItems'), (snapshot) => {
-      const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const items = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        docId: doc.id
+      }));
       setCustomItems(items);
       setIsLoading(false);
     });
@@ -119,11 +122,32 @@ export default function Compendium({ onClose }) {
    */
   const handleDeleteItem = async (itemId) => {
     if (!window.confirm("Are you sure?")) return;
+    
+    if (!auth.currentUser) {
+      toast.error("You must be logged in to delete items.");
+      return;
+    }
+
     try {
-      await deleteDoc(doc(db, 'compendiums', currentUser.uid, 'masterItems', itemId));
+      // 1. DEBUG LOG: Check exactly what `itemId` is
+      console.log("Attempting to delete item. ID received:", itemId);
+      
+      // 2. Prevent accidental bad deletions
+      if (!itemId || typeof itemId !== 'string') {
+          console.error("Invalid itemId passed to delete function:", itemId);
+          toast.error("Error: Invalid item ID.");
+          return; 
+      }
+
+      const itemRef = doc(db, 'compendiums', auth.currentUser.uid, 'masterItems', itemId);
+      
+      // 3. DEBUG LOG: Check the final computed path
+      console.log("Target Path:", itemRef.path);
+
+      await deleteDoc(itemRef);
       toast.success("Custom item deleted.");
     } catch (error) {
-      toast.error("Failed to delete item.");
+      toast.error('Failed to delete item from database. Error: ' + error.message);
     }
   };
 
@@ -156,7 +180,7 @@ export default function Compendium({ onClose }) {
               </div>
               {activeTab === 'custom' && (
                 <button 
-                  onClick={() => handleDeleteItem(item.id)} 
+                  onClick={() => handleDeleteItem(item.docId)} 
                   className="mt-2 text-xs bg-destructive/50 hover:bg-destructive text-text-base px-2 py-1 rounded self-end transition-colors"
                 >
                   Delete

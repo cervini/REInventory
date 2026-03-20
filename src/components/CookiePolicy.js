@@ -25,7 +25,6 @@ export default function CookiePolicy({ onClose }) {
         <ul className="list-disc list-inside pl-4 space-y-1">
           <li><strong>Authentication:</strong> When you sign in, Google Firebase Authentication uses <strong>IndexedDB</strong> to create a secure session and keep you logged in. This is strictly necessary for the application to work.</li>
           <li><strong>Cookie Consent:</strong> To remember your choice about this policy, we use <strong>Local Storage</strong> to store a simple "true" value once you accept. This prevents us from showing you the banner on every visit.</li>
-          <li><strong>Online Status:</strong> To show other players in a trade whether the DM is online, we use the <strong>Firebase Realtime Database</strong>, which keeps a temporary record of your active connection.</li>
         </ul>
 
         <h2 className="text-xl font-fantasy text-accent pt-2">How to Control Your Data</h2>
