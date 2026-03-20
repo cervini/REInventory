@@ -129,10 +129,8 @@ export default function Compendium({ onClose }) {
     }
 
     try {
-      // 1. DEBUG LOG: Check exactly what `itemId` is
       console.log("Attempting to delete item. ID received:", itemId);
       
-      // 2. Prevent accidental bad deletions
       if (!itemId || typeof itemId !== 'string') {
           console.error("Invalid itemId passed to delete function:", itemId);
           toast.error("Error: Invalid item ID.");
@@ -141,7 +139,6 @@ export default function Compendium({ onClose }) {
 
       const itemRef = doc(db, 'compendiums', auth.currentUser.uid, 'masterItems', itemId);
       
-      // 3. DEBUG LOG: Check the final computed path
       console.log("Target Path:", itemRef.path);
 
       await deleteDoc(itemRef);
