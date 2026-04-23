@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { doc, updateDoc, writeBatch, setDoc, collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from '../firebase';
-import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, pointerWithin } from '@dnd-kit/core';
+import { DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors, pointerWithin } from '@dnd-kit/core';
 import PlayerInventoryGrid from './PlayerInventoryGrid';
 import { findFirstAvailableSlot, onOtherItem, outOfBounds } from '../utils/gridUtils';
 import AddItem from './AddItem';
@@ -1386,6 +1386,14 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
         distance: 8,
       },
     }),
+    useSensor(TouchSensor, {
+      // This allows mobile users to swipe to scroll.
+      // A drag will only start if they press and hold for 250ms.
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    })
   );
 
   if (isLoading) {
