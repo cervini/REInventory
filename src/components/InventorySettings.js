@@ -4,16 +4,154 @@ import { db } from '../firebase';
 import { doc, writeBatch, getDoc, getDocs, collection } from "firebase/firestore";
 import { calculateCarryingCapacity } from '../utils/dndUtils';
 import CollapsibleSection from './CollapsibleSection';
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const LBS_TO_KG = 0.453592;
 const KG_TO_LBS = 2.20462;
 const sizeOptions = ['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan'];
 
+function SortableContainerItem({ 
+  container, 
+  onContainerChange, 
+  onDeleteContainer, 
+  onMoveUp, 
+  onMoveDown, 
+  isFirst, 
+  isLast,
+  isDMInventory 
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: container.id });
+  
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : 'auto',
+  };
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      className="p-4 border border-surface/50 rounded-lg space-y-4 bg-background/50 relative"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 flex-grow">
+          {/* Drag Handle */}
+          <div 
+            {...attributes} 
+            {...listeners} 
+            className="cursor-grab text-text-muted hover:text-text-base touch-none p-1.5 hover:bg-surface/50 rounded transition-colors"
+            title="Drag to Reorder"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            </svg>
+          </div>
+          
+          <input 
+            type="text"
+            value={container.name}
+            onChange={(e) => onContainerChange(container.id, 'name', e.target.value)}
+            className="font-bold text-lg bg-transparent border-b border-surface/50 focus:outline-none focus:border-accent flex-grow"
+          />
+        </div>
+
+        <div className="flex items-center space-x-1">
+          {/* Move Up Button */}
+          <button 
+            type="button" 
+            onClick={onMoveUp} 
+            disabled={isFirst}
+            className="p-1.5 text-text-muted hover:text-text-base disabled:opacity-30 disabled:cursor-not-allowed hover:bg-surface/50 rounded transition-colors"
+            title="Move Up"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+
+          {/* Move Down Button */}
+          <button 
+            type="button" 
+            onClick={onMoveDown} 
+            disabled={isLast}
+            className="p-1.5 text-text-muted hover:text-text-base disabled:opacity-30 disabled:cursor-not-allowed hover:bg-surface/50 rounded transition-colors"
+            title="Move Down"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+
+          {/* Delete Button */}
+          <button 
+            type="button" 
+            onClick={() => onDeleteContainer(container.id)} 
+            className="p-1.5 text-destructive/70 hover:text-destructive hover:bg-destructive/10 rounded transition-colors ml-2"
+            title="Delete Container"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div className="flex space-x-4">
+        <div className="w-1/2">
+          <label className="block text-sm font-bold mb-2 text-text-muted">Grid Width</label>
+          <input 
+            type="number" 
+            min="1" 
+            value={container.gridWidth} 
+            onChange={(e) => onContainerChange(container.id, 'gridWidth', parseInt(e.target.value, 10) || 1)} 
+            className="w-full p-2 bg-background border border-surface/50 rounded-md" 
+          />
+        </div>
+        <div className="w-1/2">
+          <label className="block text-sm font-bold mb-2 text-text-muted">Grid Height</label>
+          <input 
+            type="number" 
+            min="1" 
+            value={container.gridHeight} 
+            onChange={(e) => onContainerChange(container.id, 'gridHeight', parseInt(e.target.value, 10) || 1)} 
+            className="w-full p-2 bg-background border border-surface/50 rounded-md" 
+          />
+        </div>
+      </div>
+
+      {!isDMInventory && (
+        <div className="flex items-center">
+          <input 
+            id={`track-${container.id}`} 
+            type="checkbox" 
+            checked={container.trackWeight ?? true}
+            onChange={(e) => onContainerChange(container.id, 'trackWeight', e.target.checked)} 
+            className="w-4 h-4 text-primary bg-background border-surface/50 rounded focus:ring-accent" 
+          />
+          <label htmlFor={`track-${container.id}`} className="ml-2 text-sm font-medium text-text-muted">Track weight for this container</label>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function InventorySettings({ onClose, campaignId, userId, currentSettings, isDMInventory }) {
   const [characterName, setCharacterName] = useState(currentSettings.characterName || '');
   const [weightUnit, setWeightUnit] = useState(currentSettings.weightUnit || 'lbs');
-  // State for containers now tracks edits, additions, and deletions
-  const [containers, setContainers] = useState(Object.values(currentSettings.containers || {}));
+  // State for containers now tracks edits, additions, and deletions, sorted by order
+  const [containers, setContainers] = useState(() => {
+    const list = Object.values(currentSettings.containers || {});
+    return list.sort((a, b) => {
+      const orderA = a.order !== undefined ? a.order : 0;
+      const orderB = b.order !== undefined ? b.order : 0;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+    });
+  });
   const [containersToDelete, setContainersToDelete] = useState([]);
   const [loading, setLoading] = useState(false);
   const [strength, setStrength] = useState(currentSettings.strength || 10);
@@ -22,6 +160,39 @@ export default function InventorySettings({ onClose, campaignId, userId, current
   const [useCalculatedWeight, setUseCalculatedWeight] = useState(currentSettings.useCalculatedWeight ?? false);
   // State for the manual weight input field
   const [manualMaxWeight, setManualMaxWeight] = useState('');
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    })
+  );
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (active && over && active.id !== over.id) {
+      setContainers((items) => {
+        const oldIndex = items.findIndex(c => c.id === active.id);
+        const newIndex = items.findIndex(c => c.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
+  const handleMoveContainer = (index, direction) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= containers.length) return;
+    setContainers(prev => {
+      const list = [...prev];
+      const temp = list[index];
+      list[index] = list[newIndex];
+      list[newIndex] = temp;
+      return list;
+    });
+  };
 
   /**
    * Updates a specific field of a container in the local state.
@@ -49,6 +220,8 @@ export default function InventorySettings({ onClose, campaignId, userId, current
       trackWeight: true,
       gridItems: [],
       trayItems: [], 
+      x: containers.length * 20, // Offset new containers slightly
+      y: containers.length * 20,
       isNew: true, // Flag to identify new containers
     };
     setContainers(prev => [...prev, newContainer]);
@@ -109,7 +282,7 @@ export default function InventorySettings({ onClose, campaignId, userId, current
     });
 
     if (!isDMInventory) {
-        containers.forEach(container => {
+        containers.forEach((container, index) => {
             const isNew = container.isNew;
             const containerRef = isNew 
                 ? doc(inventoryDocRef, 'containers', crypto.randomUUID()) 
@@ -122,6 +295,9 @@ export default function InventorySettings({ onClose, campaignId, userId, current
                 trackWeight: container.trackWeight ?? true, // 'true' if trackWeight undefined
                 gridItems: container.gridItems || [],
                 trayItems: container.trayItems || [],
+                x: container.x ?? (index * 20),
+                y: container.y ?? (index * 20),
+                order: index,
             };
 
             if (isNew) {
@@ -262,46 +438,25 @@ export default function InventorySettings({ onClose, campaignId, userId, current
             {!isDMInventory && (
               <div className="space-y-4">
                 <h4 className="text-xl font-bold font-fantasy text-accent">Containers</h4>
-                {containers.map((container) => (
-                  <div key={container.id} className="p-4 border border-surface/50 rounded-lg space-y-4 bg-background/50">
-                    <div className="flex items-center justify-between">
-                        <input 
-                            type="text"
-                            value={container.name}
-                            onChange={(e) => handleContainerChange(container.id, 'name', e.target.value)}
-                            className="font-bold text-lg bg-transparent border-b border-surface/50 focus:outline-none focus:border-accent"
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={containers.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-4">
+                      {containers.map((container, index) => (
+                        <SortableContainerItem
+                          key={container.id}
+                          container={container}
+                          onContainerChange={handleContainerChange}
+                          onDeleteContainer={handleDeleteContainer}
+                          onMoveUp={() => handleMoveContainer(index, -1)}
+                          onMoveDown={() => handleMoveContainer(index, 1)}
+                          isFirst={index === 0}
+                          isLast={index === containers.length - 1}
+                          isDMInventory={isDMInventory}
                         />
-                        <button type="button" onClick={() => handleDeleteContainer(container.id)} className="text-destructive/70 hover:text-destructive transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                            </svg>
-                        </button>
+                      ))}
                     </div>
-
-                    <div className="flex space-x-4">
-                      <div className="w-1/2">
-                        <label className="block text-sm font-bold mb-2 text-text-muted">Grid Width</label>
-                        <input type="number" min="1" value={container.gridWidth} onChange={(e) => handleContainerChange(container.id, 'gridWidth', parseInt(e.target.value, 10) || 1)} className="w-full p-2 bg-background border border-surface/50 rounded-md" />
-                      </div>
-                      <div className="w-1/2">
-                        <label className="block text-sm font-bold mb-2 text-text-muted">Grid Height</label>
-                        <input type="number" min="1" value={container.gridHeight} onChange={(e) => handleContainerChange(container.id, 'gridHeight', parseInt(e.target.value, 10) || 1)} className="w-full p-2 bg-background border border-surface/50 rounded-md" />
-                      </div>
-                    </div>
-
-                    {!isDMInventory && (
-                        <div className="flex items-center">
-                            <input 
-                                id={`track-${container.id}`} 
-                                type="checkbox" 
-                                checked={container.trackWeight ?? true}
-                                onChange={(e) => handleContainerChange(container.id, 'trackWeight', e.target.checked)} 
-                                className="w-4 h-4 text-primary bg-background border-surface/50 rounded focus:ring-accent" />
-                            <label htmlFor={`track-${container.id}`} className="ml-2 text-sm font-medium text-text-muted">Track weight for this container</label>
-                        </div>
-                    )}
-                  </div>
-                ))}
+                  </SortableContext>
+                </DndContext>
                 <button type="button" onClick={handleAddNewContainer} className="w-full bg-surface/50 hover:bg-surface/80 text-text-base font-bold py-2 px-4 rounded transition-colors border border-dashed border-surface">
                   + Add New Container
                 </button>

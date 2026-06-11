@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { doc, updateDoc, writeBatch, setDoc, collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from '../firebase';
-import { DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors, pointerWithin } from '@dnd-kit/core';
+import { DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors, pointerWithin, useDraggable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import PlayerInventoryGrid from './PlayerInventoryGrid';
 import { findFirstAvailableSlot, onOtherItem, outOfBounds } from '../utils/gridUtils';
 import AddItem from './AddItem';
@@ -23,6 +24,61 @@ import WeightCounter from './WeightCounter';
 import Wallet from './Wallet';
 import { parseCostToCp, deductCurrency } from '../utils/currencyUtils';
 
+function DraggableContainerCard({ container, playerId, isViewerDM, onContextMenu, cellSizes, gridRefs, isDraggable }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: container.id,
+    data: { type: 'container', playerId, container },
+    disabled: !isDraggable
+  });
+
+  const style = {
+    position: 'absolute',
+    left: container.x || 0,
+    top: container.y || 0,
+    transform: transform ? CSS.Translate.toString(transform) : undefined,
+    opacity: isDragging ? 0.8 : 1,
+    zIndex: isDragging ? 50 : 10,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="bg-surface/90 rounded-lg p-4 w-fit h-fit border border-accent/20 shadow-xl relative flex flex-col items-center backdrop-blur-md"
+    >
+      <div className="flex justify-between items-center mb-2 w-full gap-2 select-none">
+        <div
+          className="flex items-center gap-2 w-full touch-none cursor-move"
+          {...(isDraggable ? { ...attributes, ...listeners } : {})}
+          title={isDraggable ? "Drag to Move" : undefined}
+        >
+          {isDraggable && (
+            <div className="text-text-muted hover:text-text-base p-1 rounded transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                <path fillRule="evenodd" d="M9 4.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm0 7.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm0 7.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm7.5-15a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm0 7.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm0 7.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" clipRule="evenodd" />
+              </svg>
+            </div>
+          )}
+          <h3 className="font-bold text-text-muted whitespace-nowrap select-none">{container.name}</h3>
+        </div>
+      </div>
+      <div className="w-full flex justify-center">
+        <PlayerInventoryGrid
+          items={container.gridItems || []}
+          gridWidth={container.gridWidth}
+          gridHeight={container.gridHeight}
+          containerId={container.id}
+          onContextMenu={onContextMenu}
+          playerId={playerId}
+          setGridRef={(node) => (gridRefs.current[container.id] = node)}
+          cellSize={cellSizes[container.id]}
+          isViewerDM={isViewerDM}
+        />
+      </div>
+    </div>
+  );
+}
+
 /**
  * Renders the complete inventory for a single player.
  */
@@ -32,7 +88,15 @@ const PlayerInventory = ({
   isLootPile = false
 }) => {
   // We use optional chaining (?.) to prevent errors if inventoryData is not ready.
-  const containers = useMemo(() => Object.values(inventoryData?.containers || {}), [inventoryData]);
+  const containers = useMemo(() => {
+    const list = Object.values(inventoryData?.containers || {});
+    return list.sort((a, b) => {
+      const orderA = a.order !== undefined ? a.order : 0;
+      const orderB = b.order !== undefined ? b.order : 0;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+    });
+  }, [inventoryData]);
   const isViewerDM = campaign?.dmId === user.uid;
 
   const totalWeightLbs = useMemo(() => {
@@ -46,14 +110,14 @@ const PlayerInventory = ({
     // Only items in containers and equipped items affect the character's weight.
     const allItems = [...containerGridItems, ...equippedItems];
     return allItems.reduce((total, item) => {
-        const weightValue = parseFloat(item.weight);
-        if (!isNaN(weightValue)) {
-          return total + (weightValue * (item.quantity || 1));
-        }
-        return total;
-      }, 0);
+      const weightValue = parseFloat(item.weight);
+      if (!isNaN(weightValue)) {
+        return total + (weightValue * (item.quantity || 1));
+      }
+      return total;
+    }, 0);
   }, [inventoryData, containers]);
-  
+
   // The conditional return now correctly happens AFTER all hooks are called.
   if (!inventoryData) return null;
 
@@ -62,134 +126,124 @@ const PlayerInventory = ({
 
   // Dynamic classes: If it's a loot pile, remove the card styling (border/shadow/bg)
   // so it blends into the yellow parent container.
-  const containerClasses = isLootPile 
-    ? "overflow-hidden" 
+  const containerClasses = isLootPile
+    ? "overflow-hidden"
     : "bg-surface rounded-lg shadow-lg shadow-accent/10 border border-accent/20 overflow-hidden";
 
   return (
     <div className={containerClasses}>
-      
+
       {/* 1. HIDE HEADER FOR LOOT PILE (No Name, Wallet, or Weight) */}
       {!isLootPile && (
         <div className="w-full p-2 text-left bg-surface/80 flex flex-wrap justify-between items-center border-b border-surface/50 gap-2">
-            <h2 className="text-xl font-bold text-accent font-fantasy tracking-wider truncate">
+          <h2 className="text-xl font-bold text-accent font-fantasy tracking-wider truncate">
             {inventoryData.characterName || playerProfiles[playerId]?.displayName}
-            </h2>
-            <div className="flex items-center space-x-2 flex-shrink-0">
-            <Wallet 
-                campaignId={campaign.id}
-                inventoryId={playerId}
-                currency={inventoryData.currency}
-                canEdit={isMyInventory || isPlayerDM} 
+          </h2>
+          <div className="flex items-center space-x-2 flex-shrink-0">
+            <Wallet
+              campaignId={campaign.id}
+              inventoryId={playerId}
+              currency={inventoryData.currency}
+              canEdit={isMyInventory || isPlayerDM}
             />
             {!isPlayerDM && (
-                <WeightCounter
+              <WeightCounter
                 currentWeight={totalWeightLbs}
                 maxWeight={inventoryData.totalMaxWeight || 0}
                 unit={inventoryData.weightUnit || 'lbs'}
-                />
+              />
             )}
             {!isPlayerDM && (
-                <button
+              <button
                 onClick={onToggleEquipped}
                 className="p-2 rounded-full hover:bg-background transition-colors"
                 title="Toggle Equipped Items"
-                >
+              >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.602-3.751m-.228-1.12A12.001 12.001 0 0012 2.75c-2.652 0-5.115 1.02-6.974 2.722" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.602-3.751m-.228-1.12A12.001 12.001 0 0012 2.75c-2.652 0-5.115 1.02-6.974 2.722" />
                 </svg>
-                </button>
+              </button>
             )}
             {isMyInventory && (
-                <button
+              <button
                 onClick={() => setEditingSettings({
-                    playerId: playerId,
-                    currentSettings: inventoryData,
-                    isDMInventory: isPlayerDM
+                  playerId: playerId,
+                  currentSettings: inventoryData,
+                  isDMInventory: isPlayerDM
                 })}
                 className="p-2 rounded-full hover:bg-background transition-colors"
-                >
+              >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-text-muted" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
-                    <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
+                  <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+                  <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
                 </svg>
-                </button>
+              </button>
             )}
-            </div>
+          </div>
         </div>
       )}
-      
+
       {/* Collapsible Equipped Items Tray */}
       {!isPlayerDM && !isLootPile && (
         <div className={`transition-[max-height] duration-300 ease-in-out overflow-hidden ${isEquippedVisible ? 'max-h-96' : 'max-h-0 invisible'}`}>
           <div className="p-2 bg-background/50 border-b border-surface/50">
-              <h3 className="font-bold font-fantasy text-text-muted px-2 text-sm">Equipped</h3>
-              <div className="bg-background/50 rounded-lg p-2 border border-accent/10 shadow-inner">
-                  <ItemTray
-                      items={inventoryData.equippedItems || []}
-                      containerId="equipped"
-                      onContextMenu={onContextMenu}
-                      playerId={playerId}
-                      isViewerDM={isViewerDM}
-                      emptyMessage="No items equipped."
-                      source="equipped"
-                      layout="horizontal"
-                      disabled={!isEquippedVisible}
-                  />
-              </div>
+            <h3 className="font-bold font-fantasy text-text-muted px-2 text-sm">Equipped</h3>
+            <div className="bg-background/50 rounded-lg p-2 border border-accent/10 shadow-inner">
+              <ItemTray
+                items={inventoryData.equippedItems || []}
+                containerId="equipped"
+                onContextMenu={onContextMenu}
+                playerId={playerId}
+                isViewerDM={isViewerDM}
+                emptyMessage="No items equipped."
+                source="equipped"
+                layout="horizontal"
+                disabled={!isEquippedVisible}
+              />
+            </div>
           </div>
-      </div>
+        </div>
       )}
 
       {/* Main Content (Containers + Tray) */}
       <div className={isLootPile ? "" : "bg-background/50"}>
         <div className="p-2 space-y-4">
-          
+
           {/* Grids (Used by players) */}
           {!isPlayerDM && !isLootPile && (
-              <div className="flex flex-row flex-wrap gap-4">
-                {containers.map((container) => (
-                  <div 
-                    key={container.id} 
-                    className="bg-surface/50 rounded-lg p-2 flex-grow"
-                    style={{ flexBasis: `${container.gridWidth * 3.5}rem`, minWidth: '12rem' }}
-                  >
-                    <div className="flex justify-between items-center mb-2">
-                      <h3 className="font-bold text-text-muted">{container.name}</h3>
-                    </div>
-                    <PlayerInventoryGrid
-                      items={container.gridItems || []}
-                      gridWidth={container.gridWidth}
-                      gridHeight={container.gridHeight}
-                      containerId={container.id}
-                      onContextMenu={onContextMenu}
-                      playerId={playerId}
-                      setGridRef={(node) => (gridRefs.current[container.id] = node)}
-                      cellSize={cellSizes[container.id]}
-                      isViewerDM={isViewerDM}
-                    />
-                  </div>
-                ))}
-              </div>
+            <div id={`canvas-${playerId}`} className="relative w-full min-h-[800px] border border-dashed border-accent/20 rounded-lg overflow-hidden bg-black/10">
+              {containers.map((container) => (
+                <DraggableContainerCard
+                  key={container.id}
+                  container={container}
+                  playerId={playerId}
+                  isViewerDM={isViewerDM}
+                  onContextMenu={onContextMenu}
+                  cellSizes={cellSizes}
+                  gridRefs={gridRefs}
+                  isDraggable={!isLootPile && (isMyInventory || isViewerDM)}
+                />
+              ))}
+            </div>
           )}
 
           {/* Tray (Used by everyone) */}
           <div className="mt-2">
-              {/* 2. CHANGE TRAY LABEL: Hide 'Floor/Ground' for loot pile */}
-              {!isLootPile && (
-                  <h3 className="font-bold font-fantasy text-text-muted p-2 mt-2">Floor / Ground</h3>
-              )}
-              
-              <div className={`rounded-lg p-2 border shadow-inner ${isLootPile ? 'bg-black/20 border-yellow-900/30' : 'bg-background/50 border-accent/10'}`}>
-                <ItemTray
-                    items={inventoryData.trayItems || []}
-                    containerId="tray" 
-                    onContextMenu={onContextMenu}
-                    playerId={playerId}
-                    isViewerDM={isViewerDM}
-                    emptyMessage={isLootPile ? "Empty" : "There is nothing on the ground."}
-                />
-              </div>
+            {/* 2. CHANGE TRAY LABEL: Hide 'Floor/Ground' for loot pile */}
+            {!isLootPile && (
+              <h3 className="font-bold font-fantasy text-text-muted p-2 mt-2">Floor / Ground</h3>
+            )}
+
+            <div className={`rounded-lg p-2 border shadow-inner ${isLootPile ? 'bg-black/20 border-yellow-900/30' : 'bg-background/50 border-accent/10'}`}>
+              <ItemTray
+                items={inventoryData.trayItems || []}
+                containerId="tray"
+                onContextMenu={onContextMenu}
+                playerId={playerId}
+                isViewerDM={isViewerDM}
+                emptyMessage={isLootPile ? "Empty" : "There is nothing on the ground."}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -212,7 +266,7 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
     deleteMerchant,
     updateCurrency,
   } = useCampaignStore();
-  
+
   const { playerProfiles, isLoading: profilesLoading } = usePlayerProfiles(campaignId);
   const isLoading = inventoriesLoading || profilesLoading;
 
@@ -242,22 +296,22 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
 
   const containerStructureSignature = useMemo(() => {
     return Object.values(inventories)
-        .flatMap(inv => Object.values(inv.containers || {}))
-        .map(c => `${c.id}-${c.gridWidth}-${c.gridHeight}`)
-        .join(',');
+      .flatMap(inv => Object.values(inv.containers || {}))
+      .map(c => `${c.id}-${c.gridWidth}-${c.gridHeight}`)
+      .join(',');
   }, [inventories]);
 
   // Group inventories by type
   const { lootPileData, merchantData, playerInventories } = useMemo(() => {
     const all = inventories || {};
     const loot = all['public-loot'];
-    
+
     const merchants = Object.values(all)
-        .filter(inv => inv.isMerchant)
-        .sort((a, b) => a.characterName.localeCompare(b.characterName));
+      .filter(inv => inv.isMerchant)
+      .sort((a, b) => a.characterName.localeCompare(b.characterName));
 
     const players = Object.fromEntries(
-        Object.entries(all).filter(([id, inv]) => id !== 'public-loot' && !inv.isMerchant)
+      Object.entries(all).filter(([id, inv]) => id !== 'public-loot' && !inv.isMerchant)
     );
 
     return { lootPileData: loot, merchantData: merchants, playerInventories: players };
@@ -268,10 +322,10 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
 
     // If I'm a player, only show ME
     if (!isDM) {
-        const myInventory = playerInventories[user.uid];
-        return myInventory ? [[user.uid, myInventory]] : [];
+      const myInventory = playerInventories[user.uid];
+      return myInventory ? [[user.uid, myInventory]] : [];
     }
-    
+
     // If no custom layout exists, show all players unsorted
     if (!campaign?.layout) {
       return Object.entries(playerInventories);
@@ -281,12 +335,12 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
 
     // Map the saved order to the actual player data
     const ordered = order
-        .map(playerId => ([playerId, playerInventories[playerId]]))
-        .filter(entry => entry[1]); // Remove empty entries (e.g. if a player left or if it was the loot pile ID)
-    
+      .map(playerId => ([playerId, playerInventories[playerId]]))
+      .filter(entry => entry[1]); // Remove empty entries (e.g. if a player left or if it was the loot pile ID)
+
     // Note: If you want to show new players who aren't in the 'order' array yet,
     // you would append them here. For now, we keep your existing logic:
-    
+
     return ordered.filter(([playerId]) => visible[playerId] ?? true);
 
   }, [campaign, playerInventories, user, isDM]);
@@ -306,10 +360,10 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
   const handleUpdateLootName = async (newName) => {
     if (!campaignId || !newName.trim()) return;
     try {
-        const lootRef = doc(db, 'campaigns', campaignId, 'inventories', 'public-loot');
-        await updateDoc(lootRef, { characterName: newName });
+      const lootRef = doc(db, 'campaigns', campaignId, 'inventories', 'public-loot');
+      await updateDoc(lootRef, { characterName: newName });
     } catch (error) {
-        toast.error("Failed to rename loot pile");
+      toast.error("Failed to rename loot pile");
     }
   };
 
@@ -321,7 +375,7 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
      * When an accepted trade is detected, it opens the trade window.
      */
     const tradesRef = collection(db, 'trades');
-    
+
     // Create a query that looks for trades in this campaign where:
     // 1. The current user is the one being invited (playerB).
     // 2. The trade has just become 'active'.
@@ -347,7 +401,7 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
 
   useEffect(() => {
     const observers = [];
-    
+
     /**
      * Measures the dimensions of each inventory grid element whenever the component mounts
      * or the container structure changes. The calculated cell size is used to render
@@ -392,9 +446,9 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
   }, [containerStructureSignature, inventories]);
 
   useEffect(() => {
-      if (!isLoading && inventories && !inventories['public-loot'] && isDM) {
-          createLootPile(campaignId);
-      }
+    if (!isLoading && inventories && !inventories['public-loot'] && isDM) {
+      createLootPile(campaignId);
+    }
   }, [inventories, isLoading, isDM, campaignId, createLootPile]);
 
   const handleContextMenu = (event, item, playerId, source, containerId) => {
@@ -406,7 +460,7 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
       event.currentTarget.removeEventListener('touchend', preventGhostClick);
     };
     event.currentTarget.addEventListener('touchend', preventGhostClick);
-    
+
     // --- CONTEXT CHECKS ---
     const targetInventory = inventories[playerId];
     const isDM = campaign?.dmId === user?.uid;
@@ -432,9 +486,9 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
           onClick: () => handleUnequipItem(item, playerId),
         });
       } else {
-        availableActions.push({ 
-          label: 'Equip', 
-          onClick: () => handleEquipItem(item, playerId, source, containerId) 
+        availableActions.push({
+          label: 'Equip',
+          onClick: () => handleEquipItem(item, playerId, source, containerId)
         });
       }
     }
@@ -449,17 +503,17 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
 
     // 3. Rotate (Grid Items Only)
     if (source === 'grid') {
-        availableActions.push({ 
-            label: 'Rotate', 
-            onClick: () => handleRotateItem(item, playerId, containerId) 
-        });
+      availableActions.push({
+        label: 'Rotate',
+        onClick: () => handleRotateItem(item, playerId, containerId)
+      });
     }
 
     // 4. Send To... (DM Only)
     if (isDM) {
       const allPlayerIds = campaign?.players || [];
       const otherPlayers = allPlayerIds.filter(id => id !== playerId);
-      
+
       if (otherPlayers.length > 0) {
         availableActions.push({
           label: 'Send to...',
@@ -471,33 +525,33 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
         });
       }
     }
-    
+
     // 5. Split Stack (Requires Edit Permission)
     if (canEdit && item.stackable && item.quantity > 1) {
-      availableActions.push({ 
-        label: 'Split Stack', 
-        onClick: () => handleStartSplit(item, playerId, containerId) 
+      availableActions.push({
+        label: 'Split Stack',
+        onClick: () => handleStartSplit(item, playerId, containerId)
       });
     }
 
     // 6. Administrative Actions (Requires Edit Permission)
     if (canEdit) {
-        // DM gets full access. Players get access only to their own stuff.
-        // We added a redundant check here just to be safe with the layout.
-        if (isDM || user.uid === playerId) {
-            availableActions.push({ 
-              label: 'Edit Item', 
-              onClick: () => handleStartEdit(item, playerId, containerId),
-            });
-            availableActions.push({ 
-              label: 'Duplicate Item', 
-              onClick: () => handleDuplicateItem(item, playerId),
-            });
-            availableActions.push({
-              label: 'Delete Item',
-              onClick: () => handleDeleteItem(item, playerId, source, containerId),
-            });
-        }
+      // DM gets full access. Players get access only to their own stuff.
+      // We added a redundant check here just to be safe with the layout.
+      if (isDM || user.uid === playerId) {
+        availableActions.push({
+          label: 'Edit Item',
+          onClick: () => handleStartEdit(item, playerId, containerId),
+        });
+        availableActions.push({
+          label: 'Duplicate Item',
+          onClick: () => handleDuplicateItem(item, playerId),
+        });
+        availableActions.push({
+          label: 'Delete Item',
+          onClick: () => handleDeleteItem(item, playerId, source, containerId),
+        });
+      }
     }
 
     // --- RENDER ---
@@ -505,7 +559,7 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
       x: event.touches ? event.touches[0].clientX : event.clientX,
       y: event.touches ? event.touches[0].clientY : event.clientY,
     };
-    
+
     setContextMenu({
       visible: true,
       position: position,
@@ -531,7 +585,7 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
           itemRemoved = true;
         }
       }
-    } else { 
+    } else {
       if (playerInv.trayItems) {
         const itemIndex = playerInv.trayItems.findIndex(i => i.id === item.id);
         if (itemIndex > -1) {
@@ -587,7 +641,7 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
     playerInv.equippedItems.splice(itemIndex, 1);
 
     let placed = false;
-    const { x, y, ...itemToPlace } = item; 
+    const { x, y, ...itemToPlace } = item;
     if (playerInv.containers) {
       for (const container of Object.values(playerInv.containers)) {
         if (!container.gridItems) container.gridItems = [];
@@ -656,25 +710,25 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
     const updatedItem = { ...item, magicPropertiesVisible: true };
 
     if (containerId && containerId !== 'tray') {
-        const containerDocRef = doc(db, "campaigns", campaignId, "inventories", playerId, "containers", containerId);
-        const currentContainer = inventories[playerId]?.containers?.[containerId];
-        if (!currentContainer) return;
+      const containerDocRef = doc(db, "campaigns", campaignId, "inventories", playerId, "containers", containerId);
+      const currentContainer = inventories[playerId]?.containers?.[containerId];
+      if (!currentContainer) return;
 
-        let updatePayload = {};
-        if (source === 'grid') {
-            updatePayload.gridItems = currentContainer.gridItems.map(i => i.id === item.id ? updatedItem : i);
-        } else { 
-            updatePayload.trayItems = currentContainer.trayItems.map(i => i.id === item.id ? updatedItem : i);
-        }
-        await updateDoc(containerDocRef, updatePayload);
-    
+      let updatePayload = {};
+      if (source === 'grid') {
+        updatePayload.gridItems = currentContainer.gridItems.map(i => i.id === item.id ? updatedItem : i);
+      } else {
+        updatePayload.trayItems = currentContainer.trayItems.map(i => i.id === item.id ? updatedItem : i);
+      }
+      await updateDoc(containerDocRef, updatePayload);
+
     } else if (source === 'tray') {
-        const playerInvRef = doc(db, "campaigns", campaignId, "inventories", playerId);
-        const playerInv = inventories[playerId];
-        if (!playerInv?.trayItems) return;
+      const playerInvRef = doc(db, "campaigns", campaignId, "inventories", playerId);
+      const playerInv = inventories[playerId];
+      if (!playerInv?.trayItems) return;
 
-        const updatedTrayItems = playerInv.trayItems.map(i => i.id === item.id ? updatedItem : i);
-        await updateDoc(playerInvRef, { trayItems: updatedTrayItems });
+      const updatedTrayItems = playerInv.trayItems.map(i => i.id === item.id ? updatedItem : i);
+      await updateDoc(playerInvRef, { trayItems: updatedTrayItems });
     }
     toast.success(`Revealed properties for ${item.name}.`);
   };
@@ -690,25 +744,25 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
     if (!item || !playerId || !source) return;
 
     if (containerId && containerId !== 'tray') {
-        const containerDocRef = doc(db, "campaigns", campaignId, "inventories", playerId, "containers", containerId);
-        const currentContainer = inventories[playerId]?.containers?.[containerId];
-        if (!currentContainer) return;
+      const containerDocRef = doc(db, "campaigns", campaignId, "inventories", playerId, "containers", containerId);
+      const currentContainer = inventories[playerId]?.containers?.[containerId];
+      if (!currentContainer) return;
 
-        let updatePayload = {};
-        if (source === 'grid') {
-            updatePayload.gridItems = currentContainer.gridItems.filter(i => i.id !== item.id);
-        } else { 
-            updatePayload.trayItems = currentContainer.trayItems.filter(i => i.id !== item.id);
-        }
-        await updateDoc(containerDocRef, updatePayload);
-    
+      let updatePayload = {};
+      if (source === 'grid') {
+        updatePayload.gridItems = currentContainer.gridItems.filter(i => i.id !== item.id);
+      } else {
+        updatePayload.trayItems = currentContainer.trayItems.filter(i => i.id !== item.id);
+      }
+      await updateDoc(containerDocRef, updatePayload);
+
     } else if (source === 'tray') {
-        const playerInvRef = doc(db, "campaigns", campaignId, "inventories", playerId);
-        const playerInv = inventories[playerId];
-        if (!playerInv?.trayItems) return;
+      const playerInvRef = doc(db, "campaigns", campaignId, "inventories", playerId);
+      const playerInv = inventories[playerId];
+      if (!playerInv?.trayItems) return;
 
-        const updatedTrayItems = playerInv.trayItems.filter(i => i.id !== item.id);
-        await updateDoc(playerInvRef, { trayItems: updatedTrayItems });
+      const updatedTrayItems = playerInv.trayItems.filter(i => i.id !== item.id);
+      await updateDoc(playerInvRef, { trayItems: updatedTrayItems });
     }
     toast.success(`Deleted ${item.name}.`);
   };
@@ -750,8 +804,8 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
 
     const playerInventory = inventories[finalPlayerId];
     if (!playerInventory) {
-        toast.error("Target inventory not found.");
-        return;
+      toast.error("Target inventory not found.");
+      return;
     }
 
     const isTargetDM = campaign?.dmId === finalPlayerId;
@@ -759,51 +813,51 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
     // --- 1. EDIT EXISTING ITEM ---
     if (itemToEdit) {
       const { item: originalItem, containerId } = itemToEdit;
-      
+
       // CASE A: Item is EQUIPPED
       if (containerId === 'equipped') {
-          const { x, y, ...itemForEquip } = { ...originalItem, ...itemData };
-          const updatedEquippedItems = (playerInventory.equippedItems || []).map(i => i.id === originalItem.id ? itemForEquip : i);
-          
-          const playerInvRef = doc(db, "campaigns", campaignId, "inventories", finalPlayerId);
-          await updateDoc(playerInvRef, { equippedItems: updatedEquippedItems });
-          toast.success(`Updated ${itemData.name}.`);
+        const { x, y, ...itemForEquip } = { ...originalItem, ...itemData };
+        const updatedEquippedItems = (playerInventory.equippedItems || []).map(i => i.id === originalItem.id ? itemForEquip : i);
+
+        const playerInvRef = doc(db, "campaigns", campaignId, "inventories", finalPlayerId);
+        await updateDoc(playerInvRef, { equippedItems: updatedEquippedItems });
+        toast.success(`Updated ${itemData.name}.`);
       }
-      
+
       // CASE B: Item is in a GRID (Standard Player Container)
       else if (containerId && containerId !== 'tray' && !isTargetDM) {
-        
+
         // SAFEGUARD: Check if container exists
         const container = playerInventory.containers?.[containerId];
         if (!container) {
-            console.error("Critical Error: Container not found during edit.", { containerId, finalPlayerId });
-            toast.error("Error: Container not found. Try refreshing.");
-            return;
+          console.error("Critical Error: Container not found during edit.", { containerId, finalPlayerId });
+          toast.error("Error: Container not found. Try refreshing.");
+          return;
         }
 
         const otherItems = (container.gridItems || []).filter(i => i.id !== originalItem.id);
         const updatedItem = { ...originalItem, ...itemData };
 
         const canStayInPlace = !outOfBounds(updatedItem.x, updatedItem.y, updatedItem, container.gridWidth, container.gridHeight) &&
-                               !otherItems.some(other => onOtherItem(updatedItem.x, updatedItem.y, updatedItem, other));
+          !otherItems.some(other => onOtherItem(updatedItem.x, updatedItem.y, updatedItem, other));
 
         let finalGridItems;
         let finalTrayItems = [...(playerInventory.trayItems || [])];
 
         if (canStayInPlace) {
-            finalGridItems = (container.gridItems || []).map(i => i.id === originalItem.id ? updatedItem : i);
-            toast.success(`Updated ${itemData.name}.`);
+          finalGridItems = (container.gridItems || []).map(i => i.id === originalItem.id ? updatedItem : i);
+          toast.success(`Updated ${itemData.name}.`);
         } else {
-            const newSlot = findFirstAvailableSlot(otherItems, updatedItem, container.gridWidth, container.gridHeight);
-            if (newSlot) {
-                finalGridItems = [...otherItems, { ...updatedItem, ...newSlot }];
-                toast.success(`Updated ${itemData.name} and moved.`);
-            } else {
-                const { x, y, ...trayItem } = updatedItem;
-                finalGridItems = otherItems;
-                finalTrayItems.push(trayItem);
-                toast.error(`Moved ${itemData.name} to tray.`);
-            }
+          const newSlot = findFirstAvailableSlot(otherItems, updatedItem, container.gridWidth, container.gridHeight);
+          if (newSlot) {
+            finalGridItems = [...otherItems, { ...updatedItem, ...newSlot }];
+            toast.success(`Updated ${itemData.name} and moved.`);
+          } else {
+            const { x, y, ...trayItem } = updatedItem;
+            finalGridItems = otherItems;
+            finalTrayItems.push(trayItem);
+            toast.error(`Moved ${itemData.name} to tray.`);
+          }
         }
 
         const batch = writeBatch(db);
@@ -813,46 +867,46 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
         batch.update(playerInvRef, { trayItems: finalTrayItems });
         await batch.commit();
 
-      } 
-      
+      }
+
       // CASE C: Item is in a TRAY (Main tray or DM Container)
       else {
         const isSpecificContainer = containerId && containerId !== 'tray';
 
         if (isTargetDM && isSpecificContainer) {
-            // Update item inside a specific DM container
-            const container = playerInventory.containers?.[containerId];
-            if (!container) {
-                toast.error("DM Container not found.");
-                return;
-            }
-            const updatedTrayItems = (container.trayItems || []).map(i => i.id === originalItem.id ? { ...i, ...itemData } : i);
-            const containerDocRef = doc(db, "campaigns", campaignId, "inventories", finalPlayerId, "containers", containerId);
-            await updateDoc(containerDocRef, { trayItems: updatedTrayItems });
+          // Update item inside a specific DM container
+          const container = playerInventory.containers?.[containerId];
+          if (!container) {
+            toast.error("DM Container not found.");
+            return;
+          }
+          const updatedTrayItems = (container.trayItems || []).map(i => i.id === originalItem.id ? { ...i, ...itemData } : i);
+          const containerDocRef = doc(db, "campaigns", campaignId, "inventories", finalPlayerId, "containers", containerId);
+          await updateDoc(containerDocRef, { trayItems: updatedTrayItems });
         } else {
-            // Update item in the Main Tray
-            const updatedTrayItems = (playerInventory.trayItems || []).map(i => i.id === originalItem.id ? { ...i, ...itemData } : i);
-            const playerInvRef = doc(db, "campaigns", campaignId, "inventories", finalPlayerId);
-            await updateDoc(playerInvRef, { trayItems: updatedTrayItems });
+          // Update item in the Main Tray
+          const updatedTrayItems = (playerInventory.trayItems || []).map(i => i.id === originalItem.id ? { ...i, ...itemData } : i);
+          const playerInvRef = doc(db, "campaigns", campaignId, "inventories", finalPlayerId);
+          await updateDoc(playerInvRef, { trayItems: updatedTrayItems });
         }
         toast.success(`Updated ${itemData.name}.`);
       }
-    }  
+    }
     // --- 2. CREATE NEW ITEM ---
     else {
       const originalInventories = inventories;
       const newInventories = JSON.parse(JSON.stringify(inventories));
       const targetInv = newInventories[finalPlayerId];
-      
+
       // Unified Logic: Always add to the main 'trayItems'
       if (!targetInv.trayItems) targetInv.trayItems = [];
       targetInv.trayItems.push(itemData);
 
       const inventoryDocRef = doc(db, "campaigns", campaignId, "inventories", finalPlayerId);
       const firestorePromise = setDoc(inventoryDocRef, { trayItems: targetInv.trayItems }, { merge: true });
-      
+
       setInventoriesOptimistic(newInventories);
-      
+
       try {
         await firestorePromise;
         const targetName = playerInventory?.characterName || playerProfiles[finalPlayerId]?.displayName;
@@ -898,12 +952,12 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
       const { x, y, ...trayItem } = newItem;
       finalTrayItems.push(trayItem);
     }
-    
+
     const originalItemInGrid = container.gridItems.some(i => i.id === originalItem.id);
-    if(originalItemInGrid) {
-        finalGridItems = finalGridItems.map(i => i.id === originalItem.id ? updatedOriginalItem : i)
+    if (originalItemInGrid) {
+      finalGridItems = finalGridItems.map(i => i.id === originalItem.id ? updatedOriginalItem : i)
     } else {
-        finalTrayItems = finalTrayItems.map(i => i.id === originalItem.id ? updatedOriginalItem : i)
+      finalTrayItems = finalTrayItems.map(i => i.id === originalItem.id ? updatedOriginalItem : i)
     }
 
     await updateDoc(containerDocRef, {
@@ -920,19 +974,22 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
    */
   const handleDragStart = (event) => {
     const { active } = event;
+    if (active.data.current?.type === 'container') {
+      return;
+    }
     const item = active.data.current?.item;
     const source = active.data.current?.source;
     const containerId = active.data.current?.containerId;
 
     if (!item) return;
 
-    let dimensions = { width: 80, height: 80 }; 
+    let dimensions = { width: 80, height: 80 };
 
     if (source === 'grid' && containerId && gridRefs.current[containerId]) {
       const gridElement = gridRefs.current[containerId];
       const ownerId = active.data.current?.ownerId;
       const container = inventories[ownerId]?.containers?.[containerId];
-      
+
       if (container) {
         const cellSize = {
           width: gridElement.offsetWidth / container.gridWidth,
@@ -963,7 +1020,49 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
    */
   const handleDragEnd = async (event) => {
     setActiveItem(null);
-    const { active, over } = event;
+    const { active, over, delta } = event;
+
+    if (active.data.current?.type === 'container') {
+      const activePlayerId = active.data.current.playerId;
+      const containerData = active.data.current.container;
+      const playerInventory = inventories[activePlayerId];
+
+      if (playerInventory && playerInventory.containers[containerData.id]) {
+        let newX = (containerData.x || 0) + delta.x;
+        let newY = (containerData.y || 0) + delta.y;
+
+        // Bounds checking
+        const canvasElement = document.getElementById(`canvas-${activePlayerId}`);
+        let maxX = window.innerWidth;
+        let maxY = 2000;
+        if (canvasElement) {
+          // Approximate container width/height padding so they don't get completely hidden
+          maxX = canvasElement.offsetWidth - 100;
+          maxY = canvasElement.offsetHeight - 50;
+        }
+
+        if (newX < -50 || newY < -50 || newX > maxX || newY > maxY) {
+          newX = 0;
+          newY = 0;
+          toast("Container sent back to top-left to prevent it from being lost.");
+        }
+
+        const containerRef = doc(db, 'campaigns', campaignId, 'inventories', activePlayerId, 'containers', containerData.id);
+
+        try {
+          const newInventories = JSON.parse(JSON.stringify(inventories));
+          newInventories[activePlayerId].containers[containerData.id].x = newX;
+          newInventories[activePlayerId].containers[containerData.id].y = newY;
+          setInventoriesOptimistic(newInventories);
+
+          await updateDoc(containerRef, { x: newX, y: newY });
+        } catch (err) {
+          toast.error("Failed to save container position.");
+          setInventoriesOptimistic(inventories);
+        }
+      }
+      return;
+    }
 
     if (!over) return;
 
@@ -974,110 +1073,110 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
 
     let endPlayerId, endContainerId, endDestination;
     if (over.data.current?.item) {
-        endPlayerId = over.data.current.ownerId;
-        endContainerId = over.data.current.containerId;
-        endDestination = over.data.current.source;
+      endPlayerId = over.data.current.ownerId;
+      endContainerId = over.data.current.containerId;
+      endDestination = over.data.current.source;
     } else {
-        const endIdParts = over.id.toString().split('|');
-        endPlayerId = endIdParts[0];
-        endContainerId = endIdParts[1];
-        endDestination = endIdParts[2];
+      const endIdParts = over.id.toString().split('|');
+      endPlayerId = endIdParts[0];
+      endContainerId = endIdParts[1];
+      endDestination = endIdParts[2];
     }
     if (!item || !startPlayerId || !endPlayerId) return;
 
     const newInventories = JSON.parse(JSON.stringify(inventories));
-    
+
     const passiveItem = over.data.current?.item;
     if (item && passiveItem && item.id !== passiveItem.id && passiveItem.stackable && item.name === passiveItem.name && item.type === passiveItem.type) {
-        
-        const maxStack = passiveItem.maxStack || 20;
-        const roomInStack = maxStack - passiveItem.quantity;
-        const amountToTransfer = Math.min(item.quantity, roomInStack);
 
-        if (amountToTransfer <= 0) {
-            toast.error("Stack is already full.");
-            return;
-        }
+      const maxStack = passiveItem.maxStack || 20;
+      const roomInStack = maxStack - passiveItem.quantity;
+      const amountToTransfer = Math.min(item.quantity, roomInStack);
 
-        const remainingQuantity = item.quantity - amountToTransfer;
+      if (amountToTransfer <= 0) {
+        toast.error("Stack is already full.");
+        return;
+      }
 
-        const endPlayerInv = newInventories[endPlayerId];
-        const isEndDM = endPlayerInv.characterName === "DM";
-        if (endDestination === 'grid') {
-            endPlayerInv.containers[endContainerId].gridItems.find(i => i.id === passiveItem.id).quantity += amountToTransfer;
+      const remainingQuantity = item.quantity - amountToTransfer;
+
+      const endPlayerInv = newInventories[endPlayerId];
+      const isEndDM = endPlayerInv.characterName === "DM";
+      if (endDestination === 'grid') {
+        endPlayerInv.containers[endContainerId].gridItems.find(i => i.id === passiveItem.id).quantity += amountToTransfer;
+      } else {
+        const targetTray = isEndDM ? endPlayerInv.containers[endContainerId].trayItems : endPlayerInv.trayItems;
+        targetTray.find(i => i.id === passiveItem.id).quantity += amountToTransfer;
+      }
+
+      const startPlayerInv = newInventories[startPlayerId];
+      const isStartDM = startPlayerInv.characterName === "DM";
+      if (remainingQuantity <= 0) {
+        if (startSource === 'grid') {
+          startPlayerInv.containers[startContainerId].gridItems = startPlayerInv.containers[startContainerId].gridItems.filter(i => i.id !== item.id);
         } else {
-            const targetTray = isEndDM ? endPlayerInv.containers[endContainerId].trayItems : endPlayerInv.trayItems;
-            targetTray.find(i => i.id === passiveItem.id).quantity += amountToTransfer;
+          if (isStartDM) {
+            startPlayerInv.containers[startContainerId].trayItems = startPlayerInv.containers[startContainerId].trayItems.filter(i => i.id !== item.id);
+          } else {
+            startPlayerInv.trayItems = startPlayerInv.trayItems.filter(i => i.id !== item.id);
+          }
         }
-
-        const startPlayerInv = newInventories[startPlayerId];
-        const isStartDM = startPlayerInv.characterName === "DM";
-        if (remainingQuantity <= 0) {
-            if (startSource === 'grid') {
-                startPlayerInv.containers[startContainerId].gridItems = startPlayerInv.containers[startContainerId].gridItems.filter(i => i.id !== item.id);
-            } else {
-                if (isStartDM) {
-                    startPlayerInv.containers[startContainerId].trayItems = startPlayerInv.containers[startContainerId].trayItems.filter(i => i.id !== item.id);
-                } else {
-                    startPlayerInv.trayItems = startPlayerInv.trayItems.filter(i => i.id !== item.id);
-                }
-            }
+      } else {
+        if (startSource === 'grid') {
+          startPlayerInv.containers[startContainerId].gridItems.find(i => i.id === item.id).quantity = remainingQuantity;
         } else {
-            if (startSource === 'grid') {
-                startPlayerInv.containers[startContainerId].gridItems.find(i => i.id === item.id).quantity = remainingQuantity;
-            } else {
-                const sourceTray = isStartDM ? startPlayerInv.containers[startContainerId].trayItems : startPlayerInv.trayItems;
-                sourceTray.find(i => i.id === item.id).quantity = remainingQuantity;
-            }
+          const sourceTray = isStartDM ? startPlayerInv.containers[startContainerId].trayItems : startPlayerInv.trayItems;
+          sourceTray.find(i => i.id === item.id).quantity = remainingQuantity;
         }
-        
-        setInventoriesOptimistic(newInventories);
+      }
 
-        const batch = writeBatch(db);
-        const sourceInvRef = doc(db, 'campaigns', campaignId, 'inventories', startPlayerId);
-        const targetInvRef = doc(db, 'campaigns', campaignId, 'inventories', endPlayerId);
+      setInventoriesOptimistic(newInventories);
 
-        batch.update(sourceInvRef, { trayItems: newInventories[startPlayerId].trayItems });
-        Object.values(newInventories[startPlayerId].containers).forEach(c => batch.update(doc(sourceInvRef, 'containers', c.id), { gridItems: c.gridItems, trayItems: c.trayItems }));
-        
-        if (startPlayerId !== endPlayerId) {
-            batch.update(targetInvRef, { trayItems: newInventories[endPlayerId].trayItems });
-            Object.values(newInventories[endPlayerId].containers).forEach(c => batch.update(doc(targetInvRef, 'containers', c.id), { gridItems: c.gridItems, trayItems: c.trayItems }));
-        }
+      const batch = writeBatch(db);
+      const sourceInvRef = doc(db, 'campaigns', campaignId, 'inventories', startPlayerId);
+      const targetInvRef = doc(db, 'campaigns', campaignId, 'inventories', endPlayerId);
 
-        try {
-            await batch.commit();
-            toast.success(`Stacked ${amountToTransfer} ${item.name}.`);
-        } catch (error) {
-            toast.error("Failed to stack items. Reverting.");
-            console.error("Firestore batch write failed:", error);
-            setInventoriesOptimistic(inventories); 
-        }
-        return; 
+      batch.update(sourceInvRef, { trayItems: newInventories[startPlayerId].trayItems });
+      Object.values(newInventories[startPlayerId].containers).forEach(c => batch.update(doc(sourceInvRef, 'containers', c.id), { gridItems: c.gridItems, trayItems: c.trayItems }));
+
+      if (startPlayerId !== endPlayerId) {
+        batch.update(targetInvRef, { trayItems: newInventories[endPlayerId].trayItems });
+        Object.values(newInventories[endPlayerId].containers).forEach(c => batch.update(doc(targetInvRef, 'containers', c.id), { gridItems: c.gridItems, trayItems: c.trayItems }));
+      }
+
+      try {
+        await batch.commit();
+        toast.success(`Stacked ${amountToTransfer} ${item.name}.`);
+      } catch (error) {
+        toast.error("Failed to stack items. Reverting.");
+        console.error("Firestore batch write failed:", error);
+        setInventoriesOptimistic(inventories);
+      }
+      return;
     }
 
     // --- MERCHANT LOGIC (Buying) ---
     const sourceInv = inventories[startPlayerId];
     if (sourceInv?.isMerchant && startPlayerId !== endPlayerId) {
-        // We are dragging FROM a merchant TO someone else
-        const costInCp = parseCostToCp(item.cost);
-        const playerWallet = inventories[endPlayerId]?.currency || { gp: 0, sp: 0, cp: 0 };
+      // We are dragging FROM a merchant TO someone else
+      const costInCp = parseCostToCp(item.cost);
+      const playerWallet = inventories[endPlayerId]?.currency || { gp: 0, sp: 0, cp: 0 };
 
-        if (costInCp > 0) {
-            // Check affordability
-            const newWallet = deductCurrency(playerWallet, costInCp);
-            
-            if (!newWallet) {
-                toast.error(`You cannot afford this item! Cost: ${item.cost}`);
-                setActiveItem(null); // Cancel drag visual
-                return; // STOP the drag
-            }
+      if (costInCp > 0) {
+        // Check affordability
+        const newWallet = deductCurrency(playerWallet, costInCp);
 
-            // Execute Payment
-            // Note: We use optimistic updates for the item, but let's fire the wallet update now
-            updateCurrency(campaignId, endPlayerId, newWallet);
-            toast.success(`Bought for ${item.cost}.`);
+        if (!newWallet) {
+          toast.error(`You cannot afford this item! Cost: ${item.cost}`);
+          setActiveItem(null); // Cancel drag visual
+          return; // STOP the drag
         }
+
+        // Execute Payment
+        // Note: We use optimistic updates for the item, but let's fire the wallet update now
+        updateCurrency(campaignId, endPlayerId, newWallet);
+        toast.success(`Bought for ${item.cost}.`);
+      }
     }
 
     let movedItem = null;
@@ -1089,62 +1188,62 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
     const isEndDM = endPlayerInv.characterName === 'DM';
 
     if (endPlayerId === 'public-loot' && !isDM) {
-        toast.error("Only the DM can add items to the Loot Pile.");
-        return;
+      toast.error("Only the DM can add items to the Loot Pile.");
+      return;
     }
 
     if (startSource === 'grid') {
-        const sourceContainer = startPlayerInv.containers?.[startContainerId];
-        if (!sourceContainer?.gridItems) return;
-        const itemIndex = sourceContainer.gridItems.findIndex(i => i.id === item.id);
-        if (itemIndex > -1) [movedItem] = sourceContainer.gridItems.splice(itemIndex, 1);
+      const sourceContainer = startPlayerInv.containers?.[startContainerId];
+      if (!sourceContainer?.gridItems) return;
+      const itemIndex = sourceContainer.gridItems.findIndex(i => i.id === item.id);
+      if (itemIndex > -1) [movedItem] = sourceContainer.gridItems.splice(itemIndex, 1);
     } else if (startSource === 'equipped') {
-        if (!startPlayerInv.equippedItems) return;
-        const itemIndex = startPlayerInv.equippedItems.findIndex(i => i.id === item.id);
-        if (itemIndex > -1) [movedItem] = startPlayerInv.equippedItems.splice(itemIndex, 1);
+      if (!startPlayerInv.equippedItems) return;
+      const itemIndex = startPlayerInv.equippedItems.findIndex(i => i.id === item.id);
+      if (itemIndex > -1) [movedItem] = startPlayerInv.equippedItems.splice(itemIndex, 1);
     } else {
-        const sourceTray = isStartDM ? startPlayerInv.containers?.[startContainerId]?.trayItems : startPlayerInv.trayItems;
-        if (!sourceTray) return;
-        const itemIndex = sourceTray.findIndex(i => i.id === item.id);
-        if (itemIndex > -1) [movedItem] = sourceTray.splice(itemIndex, 1);
+      const sourceTray = isStartDM ? startPlayerInv.containers?.[startContainerId]?.trayItems : startPlayerInv.trayItems;
+      if (!sourceTray) return;
+      const itemIndex = sourceTray.findIndex(i => i.id === item.id);
+      if (itemIndex > -1) [movedItem] = sourceTray.splice(itemIndex, 1);
     }
     if (!movedItem) return;
 
     if (endDestination === 'grid') {
-        const endContainer = endPlayerInv.containers?.[endContainerId];
-        if (!endContainer) return;
-        const gridElement = gridRefs.current[endContainerId];
-        if (!gridElement) return;
-        const { gridWidth, gridHeight } = endContainer;
-        const cellSize = { width: gridElement.offsetWidth / gridWidth, height: gridElement.offsetHeight / gridHeight };
-        const rect = gridElement.getBoundingClientRect();
-        const dropX = active.rect.current.translated.left - rect.left;
-        const dropY = active.rect.current.translated.top - rect.top;
-        let finalPos = { x: Math.round(dropX / cellSize.width), y: Math.round(dropY / cellSize.height) };
-        if (outOfBounds(finalPos.x, finalPos.y, movedItem, gridWidth, gridHeight) || endContainer.gridItems.some(other => onOtherItem(finalPos.x, finalPos.y, movedItem, other))) {
-            finalPos = findFirstAvailableSlot(endContainer.gridItems, movedItem, gridWidth, gridHeight);
-        }
-        if (finalPos) {
-            endContainer.gridItems.push({ ...movedItem, ...finalPos });
-        } else {
-            toast.error("No space in destination!");
-            const sourceTray = isStartDM ? startPlayerInv.containers[startContainerId].trayItems : startPlayerInv.trayItems;
-            sourceTray.push(movedItem);
-        }
-    } else { 
-        const { x, y, ...trayItem } = movedItem;
-        if (endDestination === 'equipped') {
-            if (!endPlayerInv.equippedItems) endPlayerInv.equippedItems = [];
-            endPlayerInv.equippedItems.push(trayItem);
-        } else if (isEndDM) {
-            const destContainer = endPlayerInv.containers?.[endContainerId];
-            if (!destContainer) return;
-            if (!destContainer.trayItems) destContainer.trayItems = [];
-            destContainer.trayItems.push(trayItem);
-        } else { 
-            if (!endPlayerInv.trayItems) endPlayerInv.trayItems = [];
-            endPlayerInv.trayItems.push(trayItem);
-        }
+      const endContainer = endPlayerInv.containers?.[endContainerId];
+      if (!endContainer) return;
+      const gridElement = gridRefs.current[endContainerId];
+      if (!gridElement) return;
+      const { gridWidth, gridHeight } = endContainer;
+      const cellSize = { width: gridElement.offsetWidth / gridWidth, height: gridElement.offsetHeight / gridHeight };
+      const rect = gridElement.getBoundingClientRect();
+      const dropX = active.rect.current.translated.left - rect.left;
+      const dropY = active.rect.current.translated.top - rect.top;
+      let finalPos = { x: Math.round(dropX / cellSize.width), y: Math.round(dropY / cellSize.height) };
+      if (outOfBounds(finalPos.x, finalPos.y, movedItem, gridWidth, gridHeight) || endContainer.gridItems.some(other => onOtherItem(finalPos.x, finalPos.y, movedItem, other))) {
+        finalPos = findFirstAvailableSlot(endContainer.gridItems, movedItem, gridWidth, gridHeight);
+      }
+      if (finalPos) {
+        endContainer.gridItems.push({ ...movedItem, ...finalPos });
+      } else {
+        toast.error("No space in destination!");
+        const sourceTray = isStartDM ? startPlayerInv.containers[startContainerId].trayItems : startPlayerInv.trayItems;
+        sourceTray.push(movedItem);
+      }
+    } else {
+      const { x, y, ...trayItem } = movedItem;
+      if (endDestination === 'equipped') {
+        if (!endPlayerInv.equippedItems) endPlayerInv.equippedItems = [];
+        endPlayerInv.equippedItems.push(trayItem);
+      } else if (isEndDM) {
+        const destContainer = endPlayerInv.containers?.[endContainerId];
+        if (!destContainer) return;
+        if (!destContainer.trayItems) destContainer.trayItems = [];
+        destContainer.trayItems.push(trayItem);
+      } else {
+        if (!endPlayerInv.trayItems) endPlayerInv.trayItems = [];
+        endPlayerInv.trayItems.push(trayItem);
+      }
     }
 
     setInventoriesOptimistic(newInventories);
@@ -1154,39 +1253,39 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
     const finalEndInventory = newInventories[endPlayerId];
 
     const sourcePlayerInvRef = doc(db, "campaigns", campaignId, "inventories", startPlayerId);
-    batch.update(sourcePlayerInvRef, { 
-        trayItems: finalSourceInventory.trayItems || [],
-        equippedItems: finalSourceInventory.equippedItems || [],
+    batch.update(sourcePlayerInvRef, {
+      trayItems: finalSourceInventory.trayItems || [],
+      equippedItems: finalSourceInventory.equippedItems || [],
     });
     Object.values(finalSourceInventory.containers).forEach(container => {
-        const containerRef = doc(sourcePlayerInvRef, 'containers', container.id);
-        batch.update(containerRef, { 
-            gridItems: container.gridItems || [],
-            trayItems: container.trayItems || [] 
-        });
+      const containerRef = doc(sourcePlayerInvRef, 'containers', container.id);
+      batch.update(containerRef, {
+        gridItems: container.gridItems || [],
+        trayItems: container.trayItems || []
+      });
     });
-    
+
     if (startPlayerId !== endPlayerId) {
-        const endPlayerInvRef = doc(db, "campaigns", campaignId, "inventories", endPlayerId);
-        batch.update(endPlayerInvRef, { 
-            trayItems: finalEndInventory.trayItems || [],
-            equippedItems: finalEndInventory.equippedItems || [],
+      const endPlayerInvRef = doc(db, "campaigns", campaignId, "inventories", endPlayerId);
+      batch.update(endPlayerInvRef, {
+        trayItems: finalEndInventory.trayItems || [],
+        equippedItems: finalEndInventory.equippedItems || [],
+      });
+      Object.values(finalEndInventory.containers).forEach(container => {
+        const containerRef = doc(endPlayerInvRef, 'containers', container.id);
+        batch.update(containerRef, {
+          gridItems: container.gridItems || [],
+          trayItems: container.trayItems || []
         });
-        Object.values(finalEndInventory.containers).forEach(container => {
-            const containerRef = doc(endPlayerInvRef, 'containers', container.id);
-            batch.update(containerRef, { 
-                gridItems: container.gridItems || [],
-                trayItems: container.trayItems || []
-            });
-        });
+      });
     }
-    
+
     try {
-        await batch.commit();
+      await batch.commit();
     } catch (error) {
-        toast.error("Failed to move item. Reverting changes.");
-        console.error("Firestore batch write failed:", error);
-        setInventoriesOptimistic(inventories); 
+      toast.error("Failed to move item. Reverting changes.");
+      console.error("Firestore batch write failed:", error);
+      setInventoriesOptimistic(inventories);
     }
   };
 
@@ -1203,32 +1302,32 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
 
     const originalInventories = inventories;
     const newInventories = JSON.parse(JSON.stringify(inventories));
-    
+
     const sourceInventory = newInventories[sourcePlayerId];
     const targetInventory = newInventories[targetPlayerId];
 
     if (!sourceInventory || !targetInventory) {
-        toast.error("Source or target inventory not found.");
-        return;
+      toast.error("Source or target inventory not found.");
+      return;
     }
 
     // --- 1. Remove from Source ---
     if (sourceInventory.equippedItems) {
-        sourceInventory.equippedItems = sourceInventory.equippedItems.filter(i => i.id !== item.id);
+      sourceInventory.equippedItems = sourceInventory.equippedItems.filter(i => i.id !== item.id);
     }
     if (sourceInventory.trayItems) {
-         sourceInventory.trayItems = sourceInventory.trayItems.filter(i => i.id !== item.id);
+      sourceInventory.trayItems = sourceInventory.trayItems.filter(i => i.id !== item.id);
     }
     if (sourceInventory.containers) {
-        Object.values(sourceInventory.containers).forEach(container => {
-            if (container.gridItems) container.gridItems = container.gridItems.filter(i => i.id !== item.id);
-            if (container.trayItems) container.trayItems = container.trayItems.filter(i => i.id !== item.id);    
-        });
+      Object.values(sourceInventory.containers).forEach(container => {
+        if (container.gridItems) container.gridItems = container.gridItems.filter(i => i.id !== item.id);
+        if (container.trayItems) container.trayItems = container.trayItems.filter(i => i.id !== item.id);
+      });
     }
-    
+
     // --- 2. Add to Target ---
     const { x, y, ...itemForTray } = item;
-    
+
     // SIMPLIFIED: Always send to the main tray (Floor/Ground), whether it's a Player or DM.
     if (!targetInventory.trayItems) targetInventory.trayItems = [];
     targetInventory.trayItems.push(itemForTray);
@@ -1242,25 +1341,25 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
     const targetPlayerInvRef = doc(db, "campaigns", campaignId, "inventories", targetPlayerId);
 
     // Update Source
-    batch.update(sourcePlayerInvRef, { 
-        trayItems: newInventories[sourcePlayerId].trayItems || [],
-        equippedItems: newInventories[sourcePlayerId].equippedItems || [] 
+    batch.update(sourcePlayerInvRef, {
+      trayItems: newInventories[sourcePlayerId].trayItems || [],
+      equippedItems: newInventories[sourcePlayerId].equippedItems || []
     });
     if (newInventories[sourcePlayerId].containers) {
-        Object.values(newInventories[sourcePlayerId].containers).forEach(c => {
-            batch.update(doc(sourcePlayerInvRef, 'containers', c.id), { 
-                gridItems: c.gridItems || [], 
-                trayItems: c.trayItems || [] 
-            });
+      Object.values(newInventories[sourcePlayerId].containers).forEach(c => {
+        batch.update(doc(sourcePlayerInvRef, 'containers', c.id), {
+          gridItems: c.gridItems || [],
+          trayItems: c.trayItems || []
         });
+      });
     }
-    
+
     // Update Target (We only need to update the main doc since we pushed to trayItems)
-    batch.update(targetPlayerInvRef, { 
-        trayItems: newInventories[targetPlayerId].trayItems || [],
-        equippedItems: newInventories[targetPlayerId].equippedItems || [] 
+    batch.update(targetPlayerInvRef, {
+      trayItems: newInventories[targetPlayerId].trayItems || [],
+      equippedItems: newInventories[targetPlayerId].equippedItems || []
     });
-    
+
     try {
       await batch.commit();
       const targetName = targetInventory.characterName || playerProfiles[targetPlayerId]?.displayName;
@@ -1295,31 +1394,31 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
     let firestorePromise;
 
     if (isPlayerDM) {
-        const container = Object.values(playerInv.containers || {})[0];
-        if (!container) {
-            toast.error("DM has no containers to add items to!");
-            return;
-        }
-        if (!container.trayItems) container.trayItems = [];
-        container.trayItems.push(newItem);
-        const containerRef = doc(db, 'campaigns', campaignId, 'inventories', playerId, 'containers', container.id);
-        firestorePromise = updateDoc(containerRef, { trayItems: container.trayItems });
+      const container = Object.values(playerInv.containers || {})[0];
+      if (!container) {
+        toast.error("DM has no containers to add items to!");
+        return;
+      }
+      if (!container.trayItems) container.trayItems = [];
+      container.trayItems.push(newItem);
+      const containerRef = doc(db, 'campaigns', campaignId, 'inventories', playerId, 'containers', container.id);
+      firestorePromise = updateDoc(containerRef, { trayItems: container.trayItems });
     } else {
-        if (!playerInv.trayItems) playerInv.trayItems = [];
-        playerInv.trayItems.push(newItem);
-        const playerInvRef = doc(db, 'campaigns', campaignId, 'inventories', playerId);
-        firestorePromise = updateDoc(playerInvRef, { trayItems: playerInv.trayItems });
+      if (!playerInv.trayItems) playerInv.trayItems = [];
+      playerInv.trayItems.push(newItem);
+      const playerInvRef = doc(db, 'campaigns', campaignId, 'inventories', playerId);
+      firestorePromise = updateDoc(playerInvRef, { trayItems: playerInv.trayItems });
     }
 
     setInventoriesOptimistic(newInventories);
 
     try {
-        await firestorePromise;
-        toast.success(`Duplicated ${item.name}.`);
+      await firestorePromise;
+      toast.success(`Duplicated ${item.name}.`);
     } catch (error) {
-        toast.error("Failed to duplicate item. Reverting.");
-        console.error("Firestore write failed:", error);
-        setInventoriesOptimistic(originalInventories);
+      toast.error("Failed to duplicate item. Reverting.");
+      console.error("Firestore write failed:", error);
+      setInventoriesOptimistic(originalInventories);
     }
   };
 
@@ -1343,7 +1442,7 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
     const otherItems = container.gridItems.filter(i => i.id !== item.id);
 
     const canStayInPlace = !outOfBounds(rotatedItem.x, rotatedItem.y, rotatedItem, container.gridWidth, container.gridHeight) &&
-                           !otherItems.some(other => onOtherItem(rotatedItem.x, rotatedItem.y, rotatedItem, other));
+      !otherItems.some(other => onOtherItem(rotatedItem.x, rotatedItem.y, rotatedItem, other));
 
     if (canStayInPlace) {
       container.gridItems = container.gridItems.map(i => i.id === item.id ? rotatedItem : i);
@@ -1364,15 +1463,15 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
 
     const batch = writeBatch(db);
     const playerDocRef = doc(db, 'campaigns', campaignId, 'inventories', playerId);
-    
+
     batch.update(playerDocRef, { trayItems: inventory.trayItems || [] });
-    
+
     Object.values(inventory.containers).forEach(c => {
-        const containerRef = doc(playerDocRef, 'containers', c.id);
-        batch.update(containerRef, { 
-            gridItems: c.gridItems || [],
-            trayItems: c.trayItems || []
-        });
+      const containerRef = doc(playerDocRef, 'containers', c.id);
+      batch.update(containerRef, {
+        gridItems: c.gridItems || [],
+        trayItems: c.trayItems || []
+      });
     });
 
     await batch.commit();
@@ -1431,14 +1530,14 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
       {isTrading && (
         <StartTrade
           onClose={() => setIsTrading(false)}
-          campaign={{id: campaignId, ...campaign}}
+          campaign={{ id: campaignId, ...campaign }}
           user={user}
           playerProfiles={playerProfiles}
           inventories={inventories}
           onTradeStarted={handleTradeStarted}
         />
       )}
-      
+
       {showCompendium && (
         <AddFromCompendium
           onClose={() => setShowCompendium(false)}
@@ -1481,8 +1580,8 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
       )}
 
       {showAddItem && (
-        <AddItem 
-          onAddItem={handleAddItem} 
+        <AddItem
+          onAddItem={handleAddItem}
           onClose={() => {
             setShowAddItem(false);
             setItemToEdit(null);
@@ -1507,159 +1606,159 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
         onDragCancel={handleDragCancel}
         collisionDetection={pointerWithin}
         dropAnimation={{
-            duration: 150,
-            easing: 'cubic-bezier(0.18, 1, 0.4, 1)',
+          duration: 150,
+          easing: 'cubic-bezier(0.18, 1, 0.4, 1)',
         }}
       >
         {/* Main Content Area */}
-        <div className="w-full h-full flex flex-col flex-grow min-w-0 relative">
+        <div className="w-full flex flex-col flex-grow min-w-0 relative min-h-screen">
           {isDM && (
-            <div className="w-full max-w-4xl flex justify-end mb-4 px-4 pt-4 mx-auto">
-                <button 
-                    onClick={() => setShowLayoutSettings(true)} 
-                    className="bg-surface hover:bg-surface/80 text-text-base font-bold py-2 px-4 rounded transition-colors text-sm"
-                >
-                    Manage Campaign
-                </button>
+            <div className="w-full max-w-7xl flex justify-end mb-4 px-4 pt-4 mx-auto">
+              <button
+                onClick={() => setShowLayoutSettings(true)}
+                className="bg-surface hover:bg-surface/80 text-text-base font-bold py-2 px-4 rounded transition-colors text-sm"
+              >
+                Manage Campaign
+              </button>
             </div>
           )}
-          <div className="w-full flex-grow overflow-auto p-4 space-y-8 pb-24 overscroll-contain max-w-4xl mx-auto">
+          <div className="w-full flex-grow p-4 space-y-8 pb-24 max-w-7xl mx-auto">
 
             {/* --- LOOT PILE SECTION --- */}
             {lootPileData && (isDM || lootPileData.isVisibleToPlayers) && (
               <div className="mb-8 border-4 border-yellow-900/30 rounded-xl overflow-hidden shadow-2xl bg-black/20 transition-all duration-300">
-                
+
                 {/* Header with Controls */}
                 <div className="bg-yellow-900/80 p-3 flex items-center justify-between border-b border-yellow-900/50 select-none">
-                    
-                    {/* Left: Title & Status */}
-                    <div className="flex items-center gap-3">
-                        {isDM ? (
-                            <input 
-                                type="text" 
-                                defaultValue={lootPileData.characterName} 
-                                onBlur={(e) => handleUpdateLootName(e.target.value)}
-                                onKeyDown={(e) => { if(e.key === 'Enter') e.target.blur() }}
-                                className="bg-transparent border-none text-2xl font-fantasy text-amber-100 tracking-widest drop-shadow-md focus:ring-0 focus:outline-none placeholder-amber-100/50 w-full max-w-sm"
-                                placeholder="The Loot Pile"
-                            />
-                        ) : (
-                            <h2 className="text-2xl font-fantasy text-amber-100 tracking-widest drop-shadow-md">
-                                {lootPileData.characterName}
-                            </h2>
-                        )}
-                        
-                        {isDM && (
-                            <span className={`hidden sm:inline-block text-xs px-2 py-0.5 rounded-full border ${lootPileData.isVisibleToPlayers ? 'bg-green-900/50 border-green-500 text-green-200' : 'bg-red-900/50 border-red-500 text-red-200'}`}>
-                                {lootPileData.isVisibleToPlayers ? 'Visible' : 'Hidden'}
-                            </span>
-                        )}
-                    </div>
 
-                    {/* Right: Buttons */}
-                    <div className="flex items-center gap-2">
-                        {/* DM Global Toggle (Eye) */}
-                        {isDM && (
-                            <button
-                                onClick={() => toggleLootPileVisibility(campaignId, lootPileData.isVisibleToPlayers)}
-                                className="p-2 text-amber-200 hover:text-white hover:bg-yellow-800/50 rounded-lg transition-colors"
-                                title={lootPileData.isVisibleToPlayers ? "Hide from players" : "Show to players"}
-                            >
-                                {lootPileData.isVisibleToPlayers ? (
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                                      <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" />
-                                      <path fillRule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 010-1.113zM17.25 12a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z" clipRule="evenodd" />
-                                    </svg>
-                                ) : (
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                                      <path d="M3.53 2.47a.75.75 0 00-1.06 1.06l18 18a.75.75 0 101.06-1.06l-18-18zM22.676 12.553a11.249 11.249 0 01-2.631 4.31l-3.099-3.099a5.25 5.25 0 00-6.71-6.71L7.759 4.577a11.217 11.217 0 014.242-.827c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113z" />
-                                      <path d="M15.75 12c0 .18-.013.357-.037.53l-4.244-4.243A3.75 3.75 0 0115.75 12zM12.53 15.713l-4.243-4.244a3.75 3.75 0 004.243 4.243z" />
-                                      <path d="M6.75 12c0-.619.107-1.213.304-1.764l-3.1-3.1a11.25 11.25 0 00-2.63 4.31c-.12.362-.12.752 0 1.114 1.489 4.467 5.704 7.69 10.675 7.69 1.5 0 2.933-.294 4.242-.827l-2.477-2.477A5.25 5.25 0 016.75 12z" />
-                                    </svg>
-                                )}
-                            </button>
+                  {/* Left: Title & Status */}
+                  <div className="flex items-center gap-3">
+                    {isDM ? (
+                      <input
+                        type="text"
+                        defaultValue={lootPileData.characterName}
+                        onBlur={(e) => handleUpdateLootName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
+                        className="bg-transparent border-none text-2xl font-fantasy text-amber-100 tracking-widest drop-shadow-md focus:ring-0 focus:outline-none placeholder-amber-100/50 w-full max-w-sm"
+                        placeholder="The Loot Pile"
+                      />
+                    ) : (
+                      <h2 className="text-2xl font-fantasy text-amber-100 tracking-widest drop-shadow-md">
+                        {lootPileData.characterName}
+                      </h2>
+                    )}
+
+                    {isDM && (
+                      <span className={`hidden sm:inline-block text-xs px-2 py-0.5 rounded-full border ${lootPileData.isVisibleToPlayers ? 'bg-green-900/50 border-green-500 text-green-200' : 'bg-red-900/50 border-red-500 text-red-200'}`}>
+                        {lootPileData.isVisibleToPlayers ? 'Visible' : 'Hidden'}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Right: Buttons */}
+                  <div className="flex items-center gap-2">
+                    {/* DM Global Toggle (Eye) */}
+                    {isDM && (
+                      <button
+                        onClick={() => toggleLootPileVisibility(campaignId, lootPileData.isVisibleToPlayers)}
+                        className="p-2 text-amber-200 hover:text-white hover:bg-yellow-800/50 rounded-lg transition-colors"
+                        title={lootPileData.isVisibleToPlayers ? "Hide from players" : "Show to players"}
+                      >
+                        {lootPileData.isVisibleToPlayers ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                            <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" />
+                            <path fillRule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 010-1.113zM17.25 12a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z" clipRule="evenodd" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                            <path d="M3.53 2.47a.75.75 0 00-1.06 1.06l18 18a.75.75 0 101.06-1.06l-18-18zM22.676 12.553a11.249 11.249 0 01-2.631 4.31l-3.099-3.099a5.25 5.25 0 00-6.71-6.71L7.759 4.577a11.217 11.217 0 014.242-.827c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113z" />
+                            <path d="M15.75 12c0 .18-.013.357-.037.53l-4.244-4.243A3.75 3.75 0 0115.75 12zM12.53 15.713l-4.243-4.244a3.75 3.75 0 004.243 4.243z" />
+                            <path d="M6.75 12c0-.619.107-1.213.304-1.764l-3.1-3.1a11.25 11.25 0 00-2.63 4.31c-.12.362-.12.752 0 1.114 1.489 4.467 5.704 7.69 10.675 7.69 1.5 0 2.933-.294 4.242-.827l-2.477-2.477A5.25 5.25 0 016.75 12z" />
+                          </svg>
                         )}
-                        
-                        {/* Local Collapse Toggle (Chevron) */}
-                        <button
-                            onClick={() => setIsLootExpanded(!isLootExpanded)}
-                            className="p-2 text-amber-200 hover:text-white hover:bg-yellow-800/50 rounded-lg transition-colors"
-                            title={isLootExpanded ? "Collapse" : "Expand"}
-                        >
-                            <svg 
-                                xmlns="http://www.w3.org/2000/svg" 
-                                viewBox="0 0 24 24" 
-                                fill="currentColor" 
-                                className={`w-6 h-6 transition-transform duration-300 ${isLootExpanded ? 'rotate-180' : ''}`}
-                            >
-                                <path fillRule="evenodd" d="M11.47 7.72a.75.75 0 011.06 0l7.5 7.5a.75.75 0 11-1.06 1.06L12 9.31l-6.97 6.97a.75.75 0 01-1.06-1.06l7.5-7.5z" clipRule="evenodd" />
-                            </svg>
-                        </button>
-                    </div>
+                      </button>
+                    )}
+
+                    {/* Local Collapse Toggle (Chevron) */}
+                    <button
+                      onClick={() => setIsLootExpanded(!isLootExpanded)}
+                      className="p-2 text-amber-200 hover:text-white hover:bg-yellow-800/50 rounded-lg transition-colors"
+                      title={isLootExpanded ? "Collapse" : "Expand"}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className={`w-6 h-6 transition-transform duration-300 ${isLootExpanded ? 'rotate-180' : ''}`}
+                      >
+                        <path fillRule="evenodd" d="M11.47 7.72a.75.75 0 011.06 0l7.5 7.5a.75.75 0 11-1.06 1.06L12 9.31l-6.97 6.97a.75.75 0 01-1.06-1.06l7.5-7.5z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-                
+
                 {/* Collapsible Content */}
                 <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isLootExpanded ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                    <PlayerInventory
-                        playerId="public-loot"
-                        inventoryData={lootPileData}
-                        campaign={campaign}
-                        playerProfiles={{}} 
-                        user={user}
-                        setEditingSettings={() => {}} // Disable settings
-                        cellSizes={cellSizes}
-                        gridRefs={gridRefs}
-                        onContextMenu={handleContextMenu}
-                        onToggleEquipped={() => {}}
-                        isEquippedVisible={false}
-                        isLootPile={true} // <--- Important: Activate loot pile styling
-                    />
+                  <PlayerInventory
+                    playerId="public-loot"
+                    inventoryData={lootPileData}
+                    campaign={campaign}
+                    playerProfiles={{}}
+                    user={user}
+                    setEditingSettings={() => { }} // Disable settings
+                    cellSizes={cellSizes}
+                    gridRefs={gridRefs}
+                    onContextMenu={handleContextMenu}
+                    onToggleEquipped={() => { }}
+                    isEquippedVisible={false}
+                    isLootPile={true} // <--- Important: Activate loot pile styling
+                  />
                 </div>
               </div>
             )}
 
             {/* --- MERCHANT SECTION --- */}
             {merchantData.length > 0 && (
-                <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {merchantData.map(merchant => (
-                        <div key={merchant.ownerId} className="border-4 border-slate-700/50 rounded-xl overflow-hidden shadow-2xl bg-black/20">
-                            <div className="bg-slate-800/90 p-3 text-center border-b border-slate-600/50 flex justify-between items-center">
-                                <h2 className="text-xl font-fantasy text-slate-200 tracking-widest drop-shadow-md">
-                                    {merchant.characterName} (Shop)
-                                </h2>
-                                {isDM && (
-                                    <button 
-                                        onClick={() => {
-                                            if (window.confirm(`Delete shop "${merchant.characterName}"? Items inside will be lost.`)) {
-                                                deleteMerchant(campaignId, merchant.ownerId);
-                                            }
-                                        }}
-                                        className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
-                                        title="Delete Shop"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                                          <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
-                                        </svg>
-                                    </button>
-                                )}
-                            </div>
-                            <PlayerInventory
-                                playerId={merchant.ownerId}
-                                inventoryData={merchant}
-                                campaign={campaign}
-                                playerProfiles={{}}
-                                user={user}
-                                setEditingSettings={() => {}}
-                                cellSizes={cellSizes}
-                                gridRefs={gridRefs}
-                                onContextMenu={handleContextMenu}
-                                onToggleEquipped={() => {}}
-                                isEquippedVisible={false}
-                                isLootPile={true} // Reuse the "clean" styling
-                            />
-                        </div>
-                    ))}
-                </div>
+              <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                {merchantData.map(merchant => (
+                  <div key={merchant.ownerId} className="border-4 border-slate-700/50 rounded-xl overflow-hidden shadow-2xl bg-black/20">
+                    <div className="bg-slate-800/90 p-3 text-center border-b border-slate-600/50 flex justify-between items-center">
+                      <h2 className="text-xl font-fantasy text-slate-200 tracking-widest drop-shadow-md">
+                        {merchant.characterName} (Shop)
+                      </h2>
+                      {isDM && (
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Delete shop "${merchant.characterName}"? Items inside will be lost.`)) {
+                              deleteMerchant(campaignId, merchant.ownerId);
+                            }
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
+                          title="Delete Shop"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                            <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                    <PlayerInventory
+                      playerId={merchant.ownerId}
+                      inventoryData={merchant}
+                      campaign={campaign}
+                      playerProfiles={{}}
+                      user={user}
+                      setEditingSettings={() => { }}
+                      cellSizes={cellSizes}
+                      gridRefs={gridRefs}
+                      onContextMenu={handleContextMenu}
+                      onToggleEquipped={() => { }}
+                      isEquippedVisible={false}
+                      isLootPile={true} // Reuse the "clean" styling
+                    />
+                  </div>
+                ))}
+              </div>
             )}
 
             {orderedAndVisibleInventories.map(([playerId, inventoryData]) => (
@@ -1702,19 +1801,19 @@ export default function InventoryGrid({ campaignId, user, userProfile, isTrading
             </button>
             {/* Add Merchant Button (DM Only) */}
             {isDM && (
-                <button
-                  onClick={() => {
-                      const name = prompt("Enter Shop Name (e.g. 'Village Smithy'):");
-                      if (name) createMerchant(campaignId, name);
-                  }}
-                  className="bg-surface/80 backdrop-blur-sm border border-amber-600/50 text-amber-500 hover:bg-amber-600 hover:text-white rounded-full p-3 sm:p-4 shadow-lg transition-all"
-                  aria-label="Create Merchant"
-                  title="Create New Shop"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72l1.189-1.19A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .415.336.75.75.75z" />
-                  </svg>
-                </button>
+              <button
+                onClick={() => {
+                  const name = prompt("Enter Shop Name (e.g. 'Village Smithy'):");
+                  if (name) createMerchant(campaignId, name);
+                }}
+                className="bg-surface/80 backdrop-blur-sm border border-amber-600/50 text-amber-500 hover:bg-amber-600 hover:text-white rounded-full p-3 sm:p-4 shadow-lg transition-all"
+                aria-label="Create Merchant"
+                title="Create New Shop"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72l1.189-1.19A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .415.336.75.75.75z" />
+                </svg>
+              </button>
             )}
           </div>
         </div>

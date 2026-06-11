@@ -9,6 +9,19 @@
   --color-accent: 40 30% 75%;       /* Brighter Beige for highlights */
   --color-primary: 40 30% 75%;      /* Using the accent beige for primary actions */
   --color-destructive: 10 30% 40%;  /* Desaturated, Rusty Red for danger */
+  --cell-size: 4rem;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --cell-size: 3rem;
+  }
+}
+
+@media (max-width: 380px) {
+  :root {
+    --cell-size: 2.5rem;
+  }
 }
 
 body {

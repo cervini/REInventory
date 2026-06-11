@@ -29,9 +29,10 @@ export default function PlayerInventoryGrid({ items, gridWidth, gridHeight, cont
 
   const gridStyle = {
     display: 'grid',
-    gridTemplateColumns: `repeat(${gridWidth}, 1fr)`,
-    gridTemplateRows: `repeat(${gridHeight}, 1fr)`,
-    aspectRatio: `${gridWidth} / ${gridHeight}`,
+    gridTemplateColumns: `repeat(${gridWidth}, var(--cell-size, 2.5rem))`,
+    gridTemplateRows: `repeat(${gridHeight}, var(--cell-size, 2.5rem))`,
+    width: `calc(${gridWidth} * var(--cell-size, 2.5rem) + ${gridWidth - 1}px)`,
+    height: `calc(${gridHeight} * var(--cell-size, 2.5rem) + ${gridHeight - 1}px)`,
     gap: '1px',
   };
 
@@ -40,7 +41,7 @@ export default function PlayerInventoryGrid({ items, gridWidth, gridHeight, cont
     <div
       ref={combinedRef}
       style={gridStyle}
-      className={`relative w-full bg-background/50 rounded-lg border border-accent/10 shadow-inner transition-colors duration-200 ${isOver ? 'bg-accent/10' : ''}`}
+      className={`relative bg-background/50 rounded-lg border border-accent/10 shadow-inner transition-colors duration-200 ${isOver ? 'bg-accent/10' : ''}`}
     >
       <div className="absolute inset-0 grid" style={gridStyle}>
         {Array.from({ length: gridWidth * gridHeight }).map((_, index) => (
