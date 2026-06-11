@@ -6,29 +6,23 @@ import React from 'react';
 // 2. Set the 'expiryDate' for when the message should stop appearing.
 // 3. Update the 'title' and 'content'.
 export const whatsNewConfig = {
-  version: '2025-12-07', // Updated for the Merchant release
-  expiryDate: '2025-12-21', // Show for 2 weeks
-  title: "Version 2.13.0: Open for Business!",
+  version: '2026-06-11-floating-bags', // Updated for the Floating Bags & Merchant release
+  expiryDate: '2026-08-01', // Show through the summer
+  title: "Version 2.14.0: Floating Bags!",
   content: (
     <div className="space-y-4 text-text-base/90 text-sm">
-      <p>The economy has arrived! This update introduces a full Merchant system, making shopping trips faster and easier than ever.</p>
-      
-      <h2 className="text-lg font-fantasy text-accent pt-2">Merchants & Shops</h2>
-      <p>DMs can now create <strong>Merchant Inventories</strong> (like a Blacksmith or General Store). When players drag an item from a shop to their inventory, the gold cost is automatically deducted from their wallet!</p>
-      
-      <h2 className="text-lg font-fantasy text-accent pt-2">Loot Pile Upgrades</h2>
-      <p>The Loot Pile has been redesigned with a cleaner look. It now clearly shows when it is empty and blends seamlessly into the game board.</p>
+      <h2 className="text-lg font-fantasy text-accent pt-2">Floating Inventory Containers</h2>
+      <p>Inventory containers have been completely refactored! They now <strong>float and can be freely moved around</strong> inside your character's inventory for ultimate organization and control.</p>
+      <blockquote className="border-l-2 border-accent/40 pl-3 italic text-text-base/70 text-xs">
+        <strong>Mobile Tip:</strong> If the new floating layout feels cramped on your phone, try switching your device to <strong>landscape mode</strong> to easily view and manage your entire inventory!
+      </blockquote>
 
-      <h2 className="text-lg font-fantasy text-accent pt-2">DM Tools</h2>
-      <p>Dungeon Masters have new controls to manage the world economy:</p>
-      <ul className="list-disc pl-5 space-y-1">
-        <li>Create and Delete Shops on the fly.</li>
-        <li>Rename the Loot Pile (e.g., "Dragon's Hoard").</li>
-        <li>Toggle Loot Pile visibility for players.</li>
-      </ul>
+      <hr className="border-accent/10 my-4" />
 
-      <h2 className="text-lg font-fantasy text-accent pt-2">Bug Fixes</h2>
-      <p>Fixed issues with item duplication when moving equipped gear and improved container interactions for the DM.</p>
+      <h2 className="text-lg font-fantasy text-primary pt-1">🔮 Coming Soon: The Next Generation Overhaul!</h2>
+      <p className="text-text-base/80">
+        Over the next few months, work is beginning on a massive system overhaul. The app is going to become <strong>even more customizable, effortless to use, and seamless to manage</strong>. Stay tuned for a whole new level of control over your campaigns!
+      </p>
     </div>
   ),
 };
