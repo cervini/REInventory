@@ -1,0 +1,40 @@
+@use "variables" as *;
+
+// Breakpoints
+@mixin respond-to($breakpoint) {
+  @if $breakpoint == 'sm' {
+    @media (max-width: 640px) { @content; }
+  } @else if $breakpoint == 'xs' {
+    @media (max-width: 380px) { @content; }
+  }
+}
+
+// Flexbox Mixins
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+// Interactive states (hover/focus)
+@mixin hover-transition {
+  transition: all 0.2s ease-in-out;
+  &:hover {
+    @content;
+  }
+}
+
+// Glassmorphism effect (used in containers)
+@mixin glass-panel {
+  background-color: rgba($color-surface, 0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba($color-accent, 0.2);
+  border-radius: 0.5rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}

@@ -1,0 +1,40 @@
+@use "../../styles/variables" as *;
+@use "../../styles/mixins" as *;
+
+.section {
+  border-top: 1px solid rgba($color-surface, 0.5);
+}
+
+.header {
+  @include flex-between;
+  width: 100%;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  text-align: left;
+  font-weight: bold;
+  color: $color-text-muted;
+  transition: color 0.2s;
+
+  &:hover {
+    color: $color-text-base;
+  }
+}
+
+.icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  transition: transform 0.2s;
+
+  &.open {
+    transform: rotate(180deg);
+  }
+}
+
+.content {
+  padding-bottom: 1rem;
+  
+  // space-y-6 equivalent
+  & > * + * {
+    margin-top: 1.5rem;
+  }
+}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { db } from '../firebase';
 import { doc, onSnapshot, updateDoc, getDoc, getDocs, collection, writeBatch, deleteDoc } from 'firebase/firestore';
-import Spinner from './Spinner';
+import Spinner from './ui/Spinner';
 import { generateItemTooltip } from '../utils/itemUtils';
 
 /**

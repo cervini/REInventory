@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { collection, doc, setDoc, getDoc, query, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import JoinCampaign from './JoinCampaign';
-import WhatsNewModal, { whatsNewConfig } from './WhatsNewModal';
+import WhatsNewModal, { whatsNewConfig } from './ui/WhatsNewModal';
 import { generateJoinCode } from '../utils/codeGenerator';
 
 const BuyMeACoffeeButton = () => (

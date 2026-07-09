@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { db } from '../firebase';
 import { doc, writeBatch, getDoc, getDocs, collection } from "firebase/firestore";
 import { calculateCarryingCapacity } from '../utils/dndUtils';
-import CollapsibleSection from './CollapsibleSection';
+import CollapsibleSection from './ui/CollapsibleSection';
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';

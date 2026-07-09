@@ -3,8 +3,8 @@ import toast from 'react-hot-toast';
 import { db, auth } from '../firebase';
 import { collection, onSnapshot, addDoc, doc, deleteDoc } from 'firebase/firestore';
 import AddItem from './AddItem';
-import Spinner from './Spinner';
-import ContextMenu from './ContextMenu';
+import Spinner from './ui/Spinner';
+import ContextMenu from './ui/ContextMenu';
 import { getColorForItemType, itemTypeOptions, generateItemTooltip } from '../utils/itemUtils';
 
 const rarityOptions = ['Common', 'Uncommon', 'Rare', 'Very Rare', 'Legendary', 'Artifact'];

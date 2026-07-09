@@ -1,0 +1,96 @@
+@use "../../styles/variables" as *;
+@use "../../styles/mixins" as *;
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  @include flex-center;
+  z-index: 50;
+  backdrop-filter: blur(4px);
+  padding: 1rem;
+}
+
+.modal {
+  background: linear-gradient(to bottom, $color-surface, $color-background);
+  border: 1px solid rgba($color-accent, 0.2);
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  width: 100%;
+  max-width: 32rem;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  font-family: $font-fantasy;
+  color: $color-accent;
+  text-align: center;
+}
+
+.contentContainer {
+  flex-grow: 1;
+  overflow: auto;
+  padding-right: 0.5rem;
+}
+
+// Global scope for the dynamic content injected from config
+:global(.whats-new-content) {
+  font-size: 0.875rem;
+  color: rgba($color-text-base, 0.9);
+  
+  & > * + * {
+    margin-top: 1rem;
+  }
+
+  h2 {
+    font-size: 1.125rem;
+    font-family: $font-fantasy;
+    padding-top: 0.5rem;
+  }
+  
+  h2.accent { color: $color-accent; }
+  h2.primary { color: $color-primary; }
+
+  blockquote {
+    border-left: 2px solid rgba($color-accent, 0.4);
+    padding-left: 0.75rem;
+    font-style: italic;
+    color: rgba($color-text-base, 0.7);
+    font-size: 0.75rem;
+  }
+
+  hr {
+    border-color: rgba($color-accent, 0.1);
+    margin: 1rem 0;
+  }
+
+  .text-faded {
+    color: rgba($color-text-base, 0.8);
+  }
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 1.5rem;
+}
+
+.playButton {
+  background-color: $color-primary;
+  color: $color-text-base;
+  font-weight: bold;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.2s, color 0.2s;
+
+  &:hover {
+    background-color: $color-accent;
+    color: $color-background;
+  }
+}

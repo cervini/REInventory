@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useCompendium } from '../hooks/useCompendium';
-import Spinner from './Spinner';
+import Spinner from './ui/Spinner';
 import { getColorForItemType } from '../utils/itemUtils';
 
 export default function AddFromCompendiumModal({ onClose, onAddItem, players, dmId, playerProfiles, user, inventories }) {

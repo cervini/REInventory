@@ -1,0 +1,31 @@
+@use "../../styles/variables" as *;
+@use "../../styles/mixins" as *;
+
+.container {
+  @include flex-center;
+  padding: 2rem; // p-8
+}
+
+.spinner {
+  height: 2.5rem; // h-10
+  width: 2.5rem; // w-10
+  color: $color-accent; // text-accent
+  animation: spin 1s linear infinite; // animate-spin
+}
+
+.circle {
+  opacity: 0.25;
+}
+
+.path {
+  opacity: 0.75;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

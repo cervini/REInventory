@@ -1,0 +1,28 @@
+// Colors
+$color-background: hsl(25, 10%, 12%);
+$color-surface: hsl(25, 10%, 20%);
+$color-text-base: hsl(40, 25%, 92%);
+$color-text-muted: hsl(40, 15%, 65%);
+$color-accent: hsl(40, 30%, 75%);
+$color-primary: hsl(40, 30%, 75%);
+$color-destructive: hsl(10, 30%, 40%);
+
+// Safelist Background Colors (For dynamic classes used in items)
+$bg-stone-700: #44403c;
+$bg-red-900: #7f1d1d;
+$bg-sky-800: #075985;
+$bg-teal-800: #115e59;
+$bg-purple-900: #581c87;
+$bg-amber-700: #b45309;
+$bg-lime-900: #365314;
+$bg-yellow-900: #713f12;
+$bg-indigo-900: #312e81;
+
+// Grid Cell Sizes
+$cell-size-desktop: 4rem;
+$cell-size-tablet: 3rem;
+$cell-size-mobile: 2.5rem;
+
+// Fonts
+$font-fantasy: 'Cinzel', serif;
+$font-sans: 'Lato', sans-serif;

@@ -1,0 +1,72 @@
+@use "variables" as *;
+@use "mixins" as *;
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&family=Lato:wght@400;700&display=swap');
+
+:root {
+  --cell-size: #{$cell-size-desktop};
+
+  @include respond-to('sm') {
+    --cell-size: #{$cell-size-tablet};
+  }
+
+  @include respond-to('xs') {
+    --cell-size: #{$cell-size-mobile};
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  
+  background-color: $color-background;
+  color: $color-text-base;
+  font-family: $font-sans;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: $font-fantasy;
+  margin: 0;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+ul, ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* Hide arrows in Chrome, Safari, Edge, Opera */
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  margin: 0; 
+}
+
+/* Hide arrows in Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+// Background texture utility class
+.bg-parchment {
+  background-image: url('https://www.toptal.com/designers/subtlepatterns/uploads/binding_dark.png');
+}

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { getColorForItemType } from '../utils/itemUtils';
-import IconPicker from './IconPicker';
-import DynamicIcon from './DynamicIcon';
-import CollapsibleSection from './CollapsibleSection';
+import IconPicker from './ui/IconPicker';
+import DynamicIcon from './ui/DynamicIcon';
+import CollapsibleSection from './ui/CollapsibleSection';
 import * as SolidIcons from '@heroicons/react/24/solid';
 
 const itemTypes = ['Weapon', 'Armor', 'Potion', 'Magic', 'Ammunition', 'Tool', 'Treasure', 'Gear', 'Other'];

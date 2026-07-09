@@ -1,5 +1,5 @@
 import React from 'react';
-import { icons } from '../assets/icons';
+import { icons } from '../../assets/icons';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/solid';
 
 const DynamicIcon = ({ iconName, className }) => {

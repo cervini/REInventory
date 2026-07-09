@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
+import styles from './CollapsibleSection.module.scss';
 
 /**
  * A reusable component that creates a collapsible section with a title.
@@ -14,18 +15,18 @@ const CollapsibleSection = ({ title, children, defaultOpen = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="border-t border-surface/50">
+    <div className={styles.section}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex justify-between items-center py-3 text-left font-bold text-text-muted hover:text-text-base transition-colors"
+        className={styles.header}
       >
         <span>{title}</span>
         <ChevronDownIcon
-          className={`w-5 h-5 transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''}`}
+          className={`${styles.icon} ${isOpen ? styles.open : ''}`}
         />
       </button>
-      {isOpen && <div className="pb-4 space-y-6">{children}</div>}
+      {isOpen && <div className={styles.content}>{children}</div>}
     </div>
   );
 };

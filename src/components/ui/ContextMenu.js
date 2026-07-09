@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import styles from './ContextMenu.module.scss';
 
 export default function ContextMenu({ menuPosition, actions, onClose }) {
   const [activeSubmenu, setActiveSubmenu] = useState(null);
@@ -40,21 +41,21 @@ export default function ContextMenu({ menuPosition, actions, onClose }) {
   return (
     <>
       <div 
-        className="fixed inset-0 z-40" 
+        className={styles.overlay} 
         onClick={onClose} 
         onContextMenu={(e) => { e.preventDefault(); onClose(); }}
       />
       
       <div
         style={menuStyle}
-        className="fixed bg-gradient-to-b from-surface to-background text-text-base rounded-md shadow-lg py-1 z-50 border border-accent/20"
+        className={styles.menu}
         onMouseLeave={handleMouseLeave} // Close submenu when leaving the entire menu area
       >
         <ul>
           {actions.map((action, index) => (
             <li 
               key={index} 
-              className="relative"
+              className={styles.menuItem}
               onMouseEnter={() => handleMouseEnter(index)}
             >
               <button
@@ -64,7 +65,7 @@ export default function ContextMenu({ menuPosition, actions, onClose }) {
                     onClose();
                   }
                 }}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-accent hover:text-background transition-colors duration-200 flex justify-between items-center"
+                className={styles.actionButton}
               >
                 <span>{action.label}</span>
                 {action.submenu && <span>&raquo;</span>}
@@ -73,7 +74,7 @@ export default function ContextMenu({ menuPosition, actions, onClose }) {
               {/* The Submenu */}
               {action.submenu && activeSubmenu === index && (
                 <div 
-                  className="absolute left-full top-0 ml-1 w-48 bg-gradient-to-b from-surface to-background rounded-md shadow-lg py-1 border border-accent/20"
+                  className={styles.submenu}
                   // Also manage hover state on the submenu itself to keep it open
                   onMouseEnter={() => clearTimeout(closeTimer.current)}
                 >
@@ -85,7 +86,7 @@ export default function ContextMenu({ menuPosition, actions, onClose }) {
                             subAction.onClick();
                             onClose();
                           }}
-                          className="w-full text-left px-4 py-2 text-sm hover:bg-accent hover:text-background transition-colors duration-200"
+                          className={styles.actionButton}
                         >
                           {subAction.label}
                         </button>

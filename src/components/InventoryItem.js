@@ -3,7 +3,7 @@ import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { getColorForItemType } from '../utils/itemUtils';
 import { generateItemTooltip } from '../utils/itemUtils';
 import { useLongPress } from '../hooks/useLongPress';
-import DynamicIcon from './DynamicIcon';
+import DynamicIcon from './ui/DynamicIcon';
 
 /**
  * Renders a single draggable and droppable inventory item.
