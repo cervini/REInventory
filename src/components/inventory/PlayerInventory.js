@@ -57,12 +57,14 @@ export default function PlayerInventory({
             {inventoryData.characterName || playerProfiles[playerId]?.displayName}
           </h2>
           <div className="inventory-grid__player-actions">
-            <Wallet
-              campaignId={campaign.id}
-              inventoryId={playerId}
-              currency={inventoryData.currency}
-              canEdit={isMyInventory || isPlayerDM}
-            />
+            {!isPlayerDM && (
+              <Wallet
+                campaignId={campaign.id}
+                inventoryId={playerId}
+                currency={inventoryData.currency}
+                canEdit={isMyInventory}
+              />
+            )}
             {!isPlayerDM && (
               <WeightCounter
                 currentWeight={totalWeightLbs}
@@ -81,7 +83,7 @@ export default function PlayerInventory({
                 </svg>
               </button>
             )}
-            {isMyInventory && (
+            {isMyInventory && !isPlayerDM && (
               <button
                 onClick={() => setEditingSettings({
                   playerId: playerId,

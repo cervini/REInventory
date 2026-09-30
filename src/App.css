@@ -3,7 +3,7 @@
   flex-direction: column;
   align-items: center;
   height: 100vh;
-  padding: 1rem;
+  padding: 1rem 0 0 0;
   color: hsl(var(--color-text-base));
   font-family: Lato, sans-serif;
 }
@@ -201,6 +201,11 @@
 .app__body {
   flex-grow: 1;
   overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.app__body::-webkit-scrollbar {
+  display: none;
 }
 
 .app__consent-spacer {

@@ -10,7 +10,8 @@ jest.mock('../components/inventory/DraggableContainerCard', () => ({ container }
   require('react').createElement('div', { 'data-testid': 'container-card' }, container.name));
 jest.mock('../components/inventory/ItemTray', () => ({ containerId, items }) =>
   require('react').createElement('div', { 'data-testid': `tray-${containerId}` }, items.length));
-jest.mock('../components/inventory/Wallet', () => () => null);
+jest.mock('../components/inventory/Wallet', () => () =>
+  require('react').createElement('span', { 'data-testid': 'wallet' }));
 jest.mock('../components/inventory/WeightCounter', () => ({ currentWeight }) =>
   require('react').createElement('span', { 'data-testid': 'carried-weight' }, currentWeight));
 
@@ -45,6 +46,23 @@ test('sorts containers and counts only carried and equipped weight', () => {
   expect(screen.getAllByTestId('container-card').map(card => card.textContent)).toEqual(['Chest', 'Pack']);
   expect(screen.getByTestId('carried-weight')).toHaveTextContent('8');
   expect(screen.getByTestId('tray-equipped')).toBeInTheDocument();
+  expect(screen.getByTestId('tray-tray')).toBeInTheDocument();
+});
+
+test('hides wallet and settings on the DM inventory but keeps them on a player inventory', () => {
+  const { container, rerender } = render(<PlayerInventory {...props} />);
+  expect(container.querySelectorAll('.inventory-grid__player-action')).toHaveLength(2);
+  expect(screen.getByTestId('wallet')).toBeInTheDocument();
+
+  rerender(<PlayerInventory
+    {...props}
+    playerId="dm"
+    user={{ uid: 'dm' }}
+    inventoryData={{ ...inventoryData, ownerId: 'dm' }}
+  />);
+  expect(container.querySelectorAll('.inventory-grid__player-action')).toHaveLength(0);
+  expect(screen.queryByTestId('wallet')).not.toBeInTheDocument();
+  expect(screen.getByText('Adventurer')).toBeInTheDocument();
   expect(screen.getByTestId('tray-tray')).toBeInTheDocument();
 });
 
