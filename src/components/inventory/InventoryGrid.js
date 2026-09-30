@@ -7,7 +7,7 @@ import PlayerInventory from './PlayerInventory';
 import LootPileSection from './LootPileSection';
 import MerchantSection from './MerchantSection';
 import InventoryActions from './InventoryActions';
-import { findFirstAvailableSlot, onOtherItem, outOfBounds } from '../../utils/gridUtils';
+import { findFirstAvailableSlot, getContainerDropPosition, onOtherItem, outOfBounds } from '../../utils/gridUtils';
 import AddItem from '../items/AddItem';
 import ContextMenu from '../ui/ContextMenu';
 import SplitStack from './SplitStack';
@@ -47,6 +47,7 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
   const [itemToEdit, setItemToEdit] = useState(null);
   const [splittingItem, setSplittingItem] = useState(null);
   const [activeItem, setActiveItem] = useState(null);
+  const [activeContainer, setActiveContainer] = useState(null);
   const [editingSettings, setEditingSettings] = useState(null);
   const [cellSizes, setCellSizes] = useState({});
   const [showCompendium, setShowCompendium] = useState(false);
@@ -56,6 +57,7 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
   const [restoringDMInventory, setRestoringDMInventory] = useState(false);
 
   const gridRefs = useRef({});
+  const containerOverlayRef = useRef(null);
 
   useEffect(() => {
     fetchCampaign(campaignId);
@@ -705,6 +707,12 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
   const handleDragStart = (event) => {
     const { active } = event;
     if (active.data.current?.type === 'container') {
+      const container = active.data.current.container;
+      const card = document.getElementById(`container-card-${active.data.current.playerId}-${container.id}`);
+      if (card) {
+        const { width, height } = card.getBoundingClientRect();
+        setActiveContainer({ container, width, height });
+      }
       return;
     }
     const item = active.data.current?.item;
@@ -740,6 +748,7 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
    */
   const handleDragCancel = () => {
     setActiveItem(null);
+    setActiveContainer(null);
   };
 
   /**
@@ -750,31 +759,22 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
    */
   const handleDragEnd = async (event) => {
     setActiveItem(null);
-    const { active, over, delta } = event;
+    const { active, over } = event;
 
     if (active.data.current?.type === 'container') {
+      const overlayRect = containerOverlayRef.current?.getBoundingClientRect();
+      setActiveContainer(null);
       const activePlayerId = active.data.current.playerId;
       const containerData = active.data.current.container;
       const playerInventory = inventories[activePlayerId];
 
       if (playerInventory && playerInventory.containers[containerData.id]) {
-        let newX = (containerData.x || 0) + delta.x;
-        let newY = (containerData.y || 0) + delta.y;
-
-        // Bounds checking
         const canvasElement = document.getElementById(`canvas-${activePlayerId}`);
-        let maxX = window.innerWidth;
-        let maxY = 2000;
-        if (canvasElement) {
-          // Approximate container width/height padding so they don't get completely hidden
-          maxX = canvasElement.offsetWidth - 100;
-          maxY = canvasElement.offsetHeight - 50;
-        }
+        if (!canvasElement || !overlayRect) return;
 
-        if (newX < -50 || newY < -50 || newX > maxX || newY > maxY) {
-          newX = 0;
-          newY = 0;
-          toast("Container sent back to top-left to prevent it from being lost.");
+        const { x: newX, y: newY, wasClamped } = getContainerDropPosition(canvasElement, overlayRect);
+        if (wasClamped) {
+          toast("Container kept within the canvas.");
         }
 
         const containerRef = doc(db, 'campaigns', campaignId, 'inventories', activePlayerId, 'containers', containerData.id);
@@ -1448,7 +1448,39 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
           />
         </div>
         <DragOverlay>
-          {activeItem ? (
+          {activeContainer ? (
+            <div
+              ref={containerOverlayRef}
+              className="inventory-grid__container-card inventory-grid__container-card--drag-preview"
+              style={{ width: activeContainer.width, height: activeContainer.height }}
+            >
+              <div className="inventory-grid__container-card-header">
+                <div className="inventory-grid__container-card-handle">
+                  <span className="inventory-grid__container-card-name">{activeContainer.container.name}</span>
+                </div>
+              </div>
+              <div
+                className="inventory-grid__container-card-preview-grid"
+                style={{
+                  gridTemplateColumns: `repeat(${activeContainer.container.gridWidth}, 1fr)`,
+                  gridTemplateRows: `repeat(${activeContainer.container.gridHeight}, 1fr)`,
+                }}
+              >
+                {(activeContainer.container.gridItems || []).map(item => (
+                  <div
+                    key={item.id}
+                    className={`${getColorForItemType(item.type)} inventory-grid__container-card-preview-item`}
+                    style={{
+                      gridColumn: `${item.x + 1} / span ${item.w}`,
+                      gridRow: `${item.y + 1} / span ${item.h}`,
+                    }}
+                  >
+                    {item.name}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : activeItem ? (
             <div
               style={{
                 width: activeItem.dimensions.width,

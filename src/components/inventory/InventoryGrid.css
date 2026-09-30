@@ -61,6 +61,35 @@
   width: 100%;
 }
 
+.inventory-grid__container-card--drag-preview {
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.inventory-grid__container-card-preview-grid {
+  display: grid;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 1px solid hsl(var(--color-accent) / 0.1);
+  border-radius: 0.5rem;
+  background-color: hsl(var(--color-background) / 0.5);
+}
+
+.inventory-grid__container-card-preview-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid hsl(var(--color-surface) / 0.5);
+  border-radius: 0.5rem;
+  color: hsl(var(--color-text-base));
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .inventory-grid__player-inventory {
   overflow: hidden;
 }

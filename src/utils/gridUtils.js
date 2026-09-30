@@ -70,3 +70,15 @@ export function findFirstAvailableSlot(items, newItem, gridWidth, gridHeight) {
   // If the loops complete without finding a spot, no slot is available.
   return null;
 }
+
+export function getContainerDropPosition(canvasElement, overlayRect) {
+  const canvasRect = canvasElement.getBoundingClientRect();
+  const maxX = Math.max(0, canvasElement.clientWidth - overlayRect.width);
+  const maxY = Math.max(0, canvasElement.clientHeight - overlayRect.height);
+  const x = overlayRect.left - canvasRect.left - canvasElement.clientLeft;
+  const y = overlayRect.top - canvasRect.top - canvasElement.clientTop;
+  const boundedX = Math.max(0, Math.min(x, maxX));
+  const boundedY = Math.max(0, Math.min(y, maxY));
+
+  return { x: boundedX, y: boundedY, wasClamped: boundedX !== x || boundedY !== y };
+}

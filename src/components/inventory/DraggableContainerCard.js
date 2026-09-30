@@ -6,22 +6,23 @@ import './InventoryGrid.css';
 
 export default function DraggableContainerCard({ container, playerId, isViewerDM, onContextMenu, cellSizes, gridRefs, isDraggable }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: container.id,
+    id: `${playerId}|${container.id}|container`,
     data: { type: 'container', playerId, container },
     disabled: !isDraggable
   });
 
   const style = {
     position: 'absolute',
-    left: container.x || 0,
-    top: container.y || 0,
+    left: Math.max(0, container.x || 0),
+    top: Math.max(0, container.y || 0),
     transform: transform ? CSS.Translate.toString(transform) : undefined,
-    opacity: isDragging ? 0.8 : 1,
+    opacity: isDragging ? 0 : 1,
     zIndex: isDragging ? 50 : 10,
   };
 
   return (
     <div
+      id={`container-card-${playerId}-${container.id}`}
       ref={setNodeRef}
       style={style}
       className="inventory-grid__container-card"
