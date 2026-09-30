@@ -1,8 +1,31 @@
 .auth__form-container {
   width: 100%;
-  max-width: 20rem;
+  max-width: 27rem;
   margin-right: auto;
   margin-left: auto;
+  padding: 1rem;
+}
+
+.auth__footer {
+  padding: 0 1rem 1.5rem;
+}
+
+.auth__error {
+  margin-bottom: 1rem;
+  color: #ffb4a6;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.auth__form-container button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.auth__form-container button:focus-visible,
+.auth__support:focus-visible {
+  outline: 2px solid hsl(var(--color-accent));
+  outline-offset: 3px;
 }
 
 .auth__support {
@@ -10,9 +33,9 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  margin-top: 2rem;
+  min-height: 2.75rem;
   color: hsl(var(--color-text-muted));
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   line-height: 1.25rem;
   transition: color 200ms;
 }

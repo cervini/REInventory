@@ -1,11 +1,41 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { db, auth } from '../../firebase';
 import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { GoogleAuthProvider, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import Login from './Login';
 import SignUp from './SignUp';
 import './Auth.css';
+
+const getAuthErrorMessage = (error, action) => {
+  switch (error.code) {
+    case 'auth/invalid-credential':
+    case 'auth/invalid-login-credentials':
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+      return 'Email or password is incorrect.';
+    case 'auth/invalid-email':
+      return 'Enter a valid email address.';
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Please wait a little before trying again.';
+    case 'auth/network-request-failed':
+      return 'Connection failed. Check your internet connection and try again.';
+    case 'auth/popup-blocked':
+      return 'Your browser blocked Google sign-in. Allow pop-ups for this site and try again.';
+    case 'auth/account-exists-with-different-credential':
+      return 'Use the sign-in method you originally used for this account.';
+    case 'auth/user-disabled':
+      return 'This account is disabled. Contact support for help.';
+    case 'auth/email-already-in-use':
+      return 'Unable to create an account with this email. Try signing in or resetting your password.';
+    case 'auth/weak-password':
+      return 'Choose a password with at least 6 characters.';
+    default:
+      return action === 'reset'
+        ? 'Unable to send a reset email right now. Please try again.'
+        : 'Unable to continue right now. Please try again.';
+  }
+};
 
 /**
  * Checks if a user profile document exists in Firestore for a given user.
@@ -41,7 +71,7 @@ const BuyMeACoffeeButton = () => (
       <path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V5z" />
       <path d="M2 10.5V15a2 2 0 002 2h12a2 2 0 002-2v-4.5A2.5 2.5 0 0017.5 8h-15A2.5 2.5 0 000 10.5zM10 13a1 1 0 110-2 1 1 0 010 2z" />
     </svg>
-    <span>Enjoying the app? Support the project!</span>
+    <span>Support the project</span>
   </a>
 );
 
@@ -55,34 +85,78 @@ const BuyMeACoffeeButton = () => (
  */
 export default function Auth({ onShowPolicy }) {
   const [showLogin, setShowLogin] = useState(true);
+  const [pendingAction, setPendingAction] = useState(null);
+  const [error, setError] = useState('');
+  const actionInProgress = useRef(false);
 
-  const handleGoogleSignIn = async () => {
-    const provider = new GoogleAuthProvider();
+  const runAuthAction = async (action, operation) => {
+    if (actionInProgress.current) return false;
+    actionInProgress.current = true;
+    setPendingAction(action);
+    setError('');
     try {
-      const result = await signInWithPopup(auth, provider);
-      await checkAndCreateUserProfile(result.user);
-    } catch (error) {
-      toast.error(error.message);
+      await operation();
+      return true;
+    } catch (err) {
+      if (action === 'reset' && err.code === 'auth/user-not-found') return true;
+      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+        setError(getAuthErrorMessage(err, action));
+      }
+      return false;
+    } finally {
+      actionInProgress.current = false;
+      setPendingAction(null);
     }
   };
+
+  const switchView = (login) => {
+    if (actionInProgress.current) return;
+    setError('');
+    setShowLogin(login);
+  };
+
+  const handleSignIn = (email, password) => runAuthAction('email', () =>
+    signInWithEmailAndPassword(auth, email, password)
+  );
+
+  const handleResetPassword = (email) => runAuthAction('reset', () =>
+    sendPasswordResetEmail(auth, email)
+  );
+
+  const handleGoogleSignIn = () => runAuthAction('google', async () => {
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    await checkAndCreateUserProfile(result.user);
+  });
   
   return (
     <>
       <div className="auth__form-container">
         {showLogin ? (
           <Login 
-            onSwitchToSignUp={() => setShowLogin(false)} 
+            onSwitchToSignUp={() => switchView(false)}
+            onSignIn={handleSignIn}
+            onResetPassword={handleResetPassword}
             onGoogleSignIn={handleGoogleSignIn}
+            pendingAction={pendingAction}
+            error={error}
+            onClearError={() => setError('')}
           />
         ) : (
           <SignUp 
-            onSwitchToLogin={() => setShowLogin(true)} 
+            onSwitchToLogin={() => switchView(true)}
             onShowPolicy={onShowPolicy}
             onGoogleSignIn={handleGoogleSignIn}
+            runAuthAction={runAuthAction}
+            pendingAction={pendingAction}
+            error={error}
+            onClearError={() => setError('')}
           />
         )}
       </div>
-      <BuyMeACoffeeButton />
+      <footer className="auth__footer">
+        <BuyMeACoffeeButton />
+      </footer>
     </>
   );
 }
