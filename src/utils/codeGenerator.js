@@ -8,7 +8,7 @@ const adjectives = [
 ];
 
 const nouns = [
-  "angel", "blade", "castle", "dragon", "eagle", 
+  "angel", "blade", "castle", "hydra", "eagle", 
   "flame", "ghost", "hammer", "island", "jewel", 
   "knight", "lion", "moon", "night", "owl", 
   "pearl", "queen", "raven", "star", "tower", 
@@ -25,7 +25,7 @@ const verbs = [
 
 /**
  * Generates a human-readable string in the format "adjective-noun-verb".
- * Example: "ancient-red-dragon"
+ * Example: "ancient-wolf-walker"
  */
 export const generateJoinCode = () => {
   const adj = adjectives[Math.floor(Math.random() * adjectives.length)];

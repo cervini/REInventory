@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ArrowPathIcon, ArrowRightOnRectangleIcon, ChevronRightIcon, ClipboardDocumentIcon, FolderIcon, HeartIcon, MagnifyingGlassIcon, PlusIcon, TrashIcon, UserPlusIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { collection, doc, setDoc, getDoc, query, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
@@ -14,54 +15,72 @@ const BuyMeACoffeeButton = () => (
     rel="noopener noreferrer"
     className="campaign-selector__support"
   >
-    <svg xmlns="http://www.w3.org/2000/svg" className="campaign-selector__icon" viewBox="0 0 20 20" fill="currentColor">
-      <path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V5z" />
-      <path d="M2 10.5V15a2 2 0 002 2h12a2 2 0 002-2v-4.5A2.5 2.5 0 0017.5 8h-15A2.5 2.5 0 000 10.5zM10 13a1 1 0 110-2 1 1 0 010 2z" />
-    </svg>
-    <span>Enjoying the app? Support the project!</span>
+    <HeartIcon className="campaign-selector__icon" aria-hidden="true" />
+    <span>Support the project</span>
   </a>
 );
 
 // Recieve a function from App.js to set the active campaign
 export default function CampaignSelector({ onCampaignSelected }) {
-  const [loading, setLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
+  const [fetchingCampaigns, setFetchingCampaigns] = useState(true);
+  const [fetchError, setFetchError] = useState('');
+  const [reloadCount, setReloadCount] = useState(0);
   const [campaignName, setCampaignName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [myCampaigns, setMyCampaigns] = useState([]);
+  const [search, setSearch] = useState('');
+  const [createError, setCreateError] = useState('');
+  const [joinError, setJoinError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const actionInProgress = useRef(false);
   
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [campaignToJoin, setCampaignToJoin] = useState(null);
   const [showAddCharacterModal, setShowAddCharacterModal] = useState(false);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
   const [campaignForNewCharacter, setCampaignForNewCharacter] = useState(null);
+  const loading = Boolean(pendingAction) || showJoinModal || showAddCharacterModal;
+  const visibleCampaigns = myCampaigns
+    .filter(campaign => `${campaign.name || ''} ${campaign.id}`.toLowerCase().includes(search.trim().toLowerCase()))
+    .sort((first, second) => (first.name || '').localeCompare(second.name || ''));
 
   useEffect(() => {
     const currentUser = auth.currentUser;
-    if (!currentUser) return;
+    if (!currentUser) {
+      setFetchingCampaigns(false);
+      setFetchError('Sign in again to view your campaigns.');
+      return;
+    }
 
-    setLoading(true);
+    let active = true;
+    setFetchingCampaigns(true);
+    setFetchError('');
     const campaignsRef = collection(db, 'campaigns');
     const joinedCampaigns = query(campaignsRef, where('players', 'array-contains', currentUser.uid));
     const ownedCampaigns = query(campaignsRef, where('dmId', '==', currentUser.uid));
 
     Promise.all([getDocs(joinedCampaigns), getDocs(ownedCampaigns)])
       .then((snapshots) => {
+        if (!active) return;
         const campaigns = new Map();
         snapshots.forEach((snapshot) => {
           snapshot.forEach((campaignDoc) => {
-            campaigns.set(campaignDoc.id, { id: campaignDoc.id, ...campaignDoc.data() });
+            campaigns.set(campaignDoc.id, { ...campaignDoc.data(), id: campaignDoc.id });
           });
         });
         setMyCampaigns([...campaigns.values()]);
       })
       .catch((error) => {
+        if (!active) return;
         console.error("Error fetching user campaigns: ", error);
-        toast.error("Could not fetch your campaigns.");
+        setFetchError('Could not load your campaigns. Please try again.');
       })
       .finally(() => {
-        setLoading(false);
+        if (active) setFetchingCampaigns(false);
       });
-  }, []);
+    return () => { active = false; };
+  }, [reloadCount]);
 
   useEffect(() => {
     const { version, expiryDate } = whatsNewConfig;
@@ -91,13 +110,22 @@ export default function CampaignSelector({ onCampaignSelected }) {
    * and then sets the newly created campaign as the active one.
    * @returns {Promise<void>} A promise that resolves when the campaign is created.
    */
-  const handleCreateCampaign = async () => {
+  const handleCreateCampaign = async (event) => {
+    event.preventDefault();
+    if (loading || actionInProgress.current || !event.currentTarget.reportValidity()) return;
+    setCreateError('');
+    setActionError('');
     if (!campaignName.trim()) {
-      toast.error("Please enter a campaign name.");
+      setCreateError('Enter a campaign name.');
       return;
     }
-    setLoading(true);
     const currentUser = auth.currentUser;
+    if (!currentUser) {
+      setCreateError('Sign in again to create a campaign.');
+      return;
+    }
+    actionInProgress.current = true;
+    setPendingAction({ type: 'create' });
 
     try {
       // 1. Generate a human-readable ID
@@ -118,15 +146,14 @@ export default function CampaignSelector({ onCampaignSelected }) {
       }
 
       if (!isUnique) {
-        toast.error("Could not generate a unique code. Please try again.");
-        setLoading(false);
+        setCreateError('Could not generate a unique code. Please try again.');
         return;
       }
 
       // 3. Create the campaign with the custom ID using setDoc
       await setDoc(doc(db, "campaigns", customId), {
         dmId: currentUser.uid,
-        name: campaignName,
+        name: campaignName.trim(),
         players: [currentUser.uid],
         layout: {
           order: [currentUser.uid],
@@ -153,9 +180,10 @@ export default function CampaignSelector({ onCampaignSelected }) {
 
     } catch (error) {
       console.error("Error creating campaign: ", error);
-      toast.error("Failed to create campaign.");
+      setCreateError('Could not create your campaign. Please try again.');
     } finally {
-        setLoading(false);
+      actionInProgress.current = false;
+      setPendingAction(null);
     }
   };
 
@@ -165,19 +193,35 @@ export default function CampaignSelector({ onCampaignSelected }) {
    * opens a modal for the user to enter their character details.
    * @returns {Promise<void>} A promise that resolves when the check is complete.
    */
-  const handleJoinCampaign = async () => {
+  const handleJoinCampaign = async (event) => {
+    event.preventDefault();
+    if (loading || actionInProgress.current || !event.currentTarget.reportValidity()) return;
+    setJoinError('');
+    setActionError('');
     const code = joinCode.trim();
-    if (!code) {
-      toast.error("Please enter a campaign code.");
+    if (!code || code.includes('/')) {
+      setJoinError('Enter a valid campaign code.');
       return;
     }
-    setLoading(true);
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      setJoinError('Sign in again to join a campaign.');
+      return;
+    }
+    actionInProgress.current = true;
+    setPendingAction({ type: 'join' });
     try {
       const campaignDocRef = doc(db, 'campaigns', code);
       const campaignSnap = await getDoc(campaignDocRef);
 
       if (!campaignSnap.exists()) {
-        toast.error("Campaign not found. Please check the code.");
+        setJoinError('Campaign not found. Check the code and try again.');
+        return;
+      }
+
+      const campaign = campaignSnap.data();
+      if (campaign.dmId === currentUser.uid || campaign.players?.includes(currentUser.uid)) {
+        onCampaignSelected(code);
         return;
       }
       
@@ -185,9 +229,10 @@ export default function CampaignSelector({ onCampaignSelected }) {
       setCampaignToJoin(code);
       setShowJoinModal(true);
     } catch (error) {
-      toast.error("An error occurred while checking the code.");
+      setJoinError('Could not check this code. Please try again.');
     } finally {
-      setLoading(false);
+      actionInProgress.current = false;
+      setPendingAction(null);
     }
   };
 
@@ -200,12 +245,17 @@ export default function CampaignSelector({ onCampaignSelected }) {
    * @returns {Promise<void>} A promise that resolves when the deletion is complete.
    */
   const handleDeleteCampaign = async (campaignId, campaignName) => {
+    if (loading || actionInProgress.current) return;
+    const campaign = myCampaigns.find(entry => entry.id === campaignId);
+    if (!auth.currentUser || campaign?.dmId !== auth.currentUser.uid) return;
     // Show a confirmation dialog before proceeding
     if (!window.confirm(`Are you sure you want to permanently delete the campaign "${campaignName}"? This action cannot be undone.`)) {
       return;
     }
 
-    setLoading(true);
+    actionInProgress.current = true;
+    setPendingAction({ type: 'delete', campaignId });
+    setActionError('');
     try {
       const inventoriesRef = collection(db, 'campaigns', campaignId, 'inventories');
       const inventorySnapshot = await getDocs(inventoriesRef);
@@ -226,9 +276,20 @@ export default function CampaignSelector({ onCampaignSelected }) {
 
     } catch (error) {
       console.error("Error deleting campaign: ", error);
-      toast.error("Failed to delete campaign.");
+      setActionError('Could not delete this campaign. Please try again.');
     } finally {
-      setLoading(false);
+      actionInProgress.current = false;
+      setPendingAction(null);
+    }
+  };
+
+  const handleCopyCode = async (code) => {
+    setActionError('');
+    try {
+      await navigator.clipboard.writeText(code);
+      toast.success('Campaign code copied.');
+    } catch {
+      setActionError('Could not copy the code. Select and copy it manually.');
     }
   };
 
@@ -255,101 +316,102 @@ export default function CampaignSelector({ onCampaignSelected }) {
         />
       )}
 
-      {/* --- Empty State --- */}
-      {!loading && myCampaigns.length === 0 && (
-        <div className="campaign-selector__empty">
-          <p>You have no campaigns yet.</p>
-          <p>Create a new one or join one below to begin your adventure!</p>
-        </div>
-      )}
-
-      {/* --- Existing Campaigns List --- */}
-      {myCampaigns.length > 0 && (
-        <div className="campaign-selector__campaigns">
-          <h2 className="campaign-selector__title">Your Campaigns</h2>
-          <div className="campaign-selector__list">
-            {myCampaigns.map((campaign) => (
-              <div key={campaign.id} className="campaign-selector__row">
-                <button
-                  onClick={() => onCampaignSelected(campaign.id)}
-                  className="campaign-selector__campaign-button"
-                >
-                  {campaign.name}
-                </button>
-                {auth.currentUser?.uid === campaign.dmId && (
-                  <div className="campaign-selector__row-actions">
-                    <button
-                      onClick={() => {
-                        setCampaignForNewCharacter(campaign.id);
-                        setShowAddCharacterModal(true);
-                      }}
-                      disabled={loading}
-                      className="campaign-selector__row-button campaign-selector__row-button--add"
-                      aria-label={`Add a character to ${campaign.name}`}
-                      title="Add Character"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="campaign-selector__icon" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 11a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1v-1z" />
-                      </svg>
-                    </button>
-                    <button onClick={() => handleDeleteCampaign(campaign.id, campaign.name)} disabled={loading} className="campaign-selector__row-button campaign-selector__row-button--delete" aria-label={`Delete campaign ${campaign.name}`} title="Delete Campaign">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="campaign-selector__icon" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+      <section className="campaign-selector__campaigns" aria-labelledby="campaigns-title">
+        <header className="campaign-selector__header">
+          <h2 className="campaign-selector__title" id="campaigns-title">Your Campaigns</h2>
+          {!fetchingCampaigns && !fetchError && (
+            <span className="campaign-selector__count">{myCampaigns.length} {myCampaigns.length === 1 ? 'campaign' : 'campaigns'}</span>
+          )}
+        </header>
+        {myCampaigns.length > 0 && (
+          <div className="campaign-selector__search">
+            <MagnifyingGlassIcon className="campaign-selector__icon" aria-hidden="true" />
+            <input type="search" aria-label="Search campaigns" placeholder="Search campaigns" autoComplete="off" value={search} onChange={event => setSearch(event.target.value)} className="campaign-selector__input campaign-selector__search-input" />
           </div>
-        </div>
-      )}
-
-      {/* --- Create/Join Section --- */}
-      <h2 className="campaign-selector__title">New adventure</h2>
-      <div className="campaign-selector__forms">
-        {/* Create Campaign */}
-        <div className="campaign-selector__create">
-            <input
-              type="text"
-              placeholder="Enter New Campaign Name"
-              value={campaignName}
-              onChange={(e) => setCampaignName(e.target.value)}
-              className="campaign-selector__input"
-            />
-            <button
-              onClick={handleCreateCampaign}
-              disabled={loading}
-              className="campaign-selector__form-button"
-            >
-              {loading ? 'Creating...' : 'Create New Campaign'}
+        )}
+        {fetchingCampaigns && (
+          <p className="campaign-selector__status" role="status">
+            <ArrowPathIcon className="campaign-selector__icon campaign-selector__spinner" aria-hidden="true" />
+            Loading your campaigns...
+          </p>
+        )}
+        {fetchError && (
+          <div className="campaign-selector__message" role="alert">
+            <p>{fetchError}</p>
+            <button type="button" className="campaign-selector__retry" onClick={() => setReloadCount(count => count + 1)} disabled={fetchingCampaigns || loading}>
+              <ArrowPathIcon className="campaign-selector__icon" aria-hidden="true" />Retry
             </button>
-        </div>
-        
-        <div className="campaign-selector__divider">
-          <div className="campaign-selector__divider-line"></div>
-          <span className="campaign-selector__divider-label">OR</span>
-          <div className="campaign-selector__divider-line"></div>
-        </div>
-
-        {/* Join Campaign */}
-        <div className="campaign-selector__join">
-            <input
-              type="text"
-              placeholder="Enter Campaign Join Code"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value)}
-              className="campaign-selector__input"
-            />
-            <button
-              onClick={handleJoinCampaign}
-              disabled={loading}
-              className="campaign-selector__form-button"
-            >
-              {loading ? 'Checking Code...' : 'Join Campaign'}
+          </div>
+        )}
+        {actionError && <p className="campaign-selector__message" role="alert">{actionError}</p>}
+        {!fetchingCampaigns && !fetchError && myCampaigns.length === 0 && (
+          <div className="campaign-selector__empty"><FolderIcon aria-hidden="true" /><p>You have no campaigns yet.</p></div>
+        )}
+        {!fetchingCampaigns && !fetchError && myCampaigns.length > 0 && visibleCampaigns.length === 0 && (
+          <p className="campaign-selector__empty" role="status">No matching campaigns.</p>
+        )}
+        <ul className="campaign-selector__list" aria-label="Campaigns">
+          {visibleCampaigns.map(campaign => {
+            const isDM = auth.currentUser?.uid === campaign.dmId;
+            const deleting = pendingAction?.type === 'delete' && pendingAction.campaignId === campaign.id;
+            return (
+              <li key={campaign.id} className="campaign-selector__row" aria-busy={deleting}>
+                <button type="button" onClick={() => onCampaignSelected(campaign.id)} disabled={loading} className="campaign-selector__campaign-button" aria-label={`Open ${campaign.name || 'Unnamed campaign'}`}>
+                  <span className="campaign-selector__campaign-info">
+                    <span className="campaign-selector__name">{campaign.name || 'Unnamed campaign'}</span>
+                    <span className="campaign-selector__metadata">
+                      <span className={`campaign-selector__role${isDM ? ' campaign-selector__role--dm' : ''}`}>{isDM ? 'DM' : 'Player'}</span>
+                      <span className="campaign-selector__code">{campaign.id}</span>
+                    </span>
+                  </span>
+                  <ChevronRightIcon className="campaign-selector__icon" aria-hidden="true" />
+                </button>
+                <div className="campaign-selector__row-actions">
+                  {deleting && <span className="campaign-selector__deleting" role="status">Deleting...</span>}
+                  <button type="button" onClick={() => handleCopyCode(campaign.id)} disabled={loading} className="campaign-selector__row-button" aria-label={`Copy code for ${campaign.name || 'Unnamed campaign'}`} title="Copy campaign code">
+                    <ClipboardDocumentIcon className="campaign-selector__icon" aria-hidden="true" />
+                  </button>
+                  {isDM && <>
+                    <button type="button" onClick={() => { setCampaignForNewCharacter(campaign.id); setShowAddCharacterModal(true); }} disabled={loading} className="campaign-selector__row-button" aria-label={`Add a character to ${campaign.name}`} title="Add character">
+                      <UserPlusIcon className="campaign-selector__icon" aria-hidden="true" />
+                    </button>
+                    <button type="button" onClick={() => handleDeleteCampaign(campaign.id, campaign.name)} disabled={loading} className="campaign-selector__row-button campaign-selector__row-button--delete" aria-label={`Delete campaign ${campaign.name}`} title="Delete campaign">
+                      <TrashIcon className="campaign-selector__icon" aria-hidden="true" />
+                    </button>
+                  </>}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+      <section className="campaign-selector__adventure" aria-labelledby="new-adventure-title">
+        <h2 className="campaign-selector__title" id="new-adventure-title">New adventure</h2>
+        <div className="campaign-selector__forms">
+          <form className="campaign-selector__create" aria-labelledby="create-campaign-title" onSubmit={handleCreateCampaign} aria-busy={pendingAction?.type === 'create'}>
+            <h3 className="campaign-selector__form-title" id="create-campaign-title">Create campaign</h3>
+            <label className="campaign-selector__label" htmlFor="campaign-name">Campaign name</label>
+            <input id="campaign-name" name="campaignName" type="text" placeholder="The Lost Kingdom" autoComplete="off" required readOnly={loading} value={campaignName} onChange={event => { setCampaignName(event.target.value); setCreateError(''); }} aria-describedby={createError ? 'create-campaign-error' : undefined} className="campaign-selector__input" />
+            {createError && <p className="campaign-selector__field-error" id="create-campaign-error" role="alert">{createError}</p>}
+            <button type="submit" disabled={loading} className="campaign-selector__form-button campaign-selector__form-button--primary">
+              <PlusIcon className="campaign-selector__icon" aria-hidden="true" />
+              {pendingAction?.type === 'create' ? 'Creating...' : 'Create campaign'}
             </button>
+          </form>
+          <form className="campaign-selector__join" aria-labelledby="join-campaign-title" onSubmit={handleJoinCampaign} aria-busy={pendingAction?.type === 'join'}>
+            <h3 className="campaign-selector__form-title" id="join-campaign-title">Join campaign</h3>
+            <label className="campaign-selector__label" htmlFor="campaign-code">Campaign code</label>
+            <input id="campaign-code" name="joinCode" type="text" placeholder="ancient-dragon-keeper" autoComplete="off" autoCapitalize="none" spellCheck={false} required readOnly={loading} value={joinCode} onChange={event => { setJoinCode(event.target.value); setJoinError(''); }} aria-describedby={joinError ? 'join-campaign-error' : undefined} className="campaign-selector__input" />
+            {joinError && <p className="campaign-selector__field-error" id="join-campaign-error" role="alert">{joinError}</p>}
+            <button type="submit" disabled={loading} className="campaign-selector__form-button">
+              <ArrowRightOnRectangleIcon className="campaign-selector__icon" aria-hidden="true" />
+              {pendingAction?.type === 'join' ? 'Checking code...' : 'Join campaign'}
+            </button>
+          </form>
         </div>
-      </div>
+      </section>
     </div>
-    <BuyMeACoffeeButton />
+    <footer className="campaign-selector__footer"><BuyMeACoffeeButton /></footer>
   </>
   );
 }
