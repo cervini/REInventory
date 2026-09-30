@@ -7,23 +7,31 @@ import './WhatsNewModal.css';
 // 2. Set the 'expiryDate' for when the message should stop appearing.
 // 3. Update the 'title' and 'content'.
 export const whatsNewConfig = {
-  version: '2026-06-11-floating-bags', // Updated for the Floating Bags & Merchant release
-  expiryDate: '2026-08-01', // Show through the summer
-  title: "Version 2.14.0: Floating Bags!",
+  version: '2026-09-30-fantasy-modern-refresh',
+  expiryDate: '2026-10-31',
+  title: 'Version 3.6.0: A Refreshed Adventure',
   content: (
     <div className="whats-new-modal__content">
-      <h2 className="whats-new-modal__heading">Floating Inventory Containers</h2>
-      <p>Inventory containers have been completely refactored! They now <strong>float and can be freely moved around</strong> inside your character's inventory for ultimate organization and control.</p>
-      <blockquote className="whats-new-modal__tip">
-        <strong>Mobile Tip:</strong> If the new floating layout feels cramped on your phone, try switching your device to <strong>landscape mode</strong> to easily view and manage your entire inventory!
-      </blockquote>
+      <p>A <strong>fantasy-modern refresh</strong> brings clearer controls, more room for your inventory, and layouts that adapt to smaller screens.</p>
+
+      <h2 className="whats-new-modal__heading">Campaigns &amp; Accounts</h2>
+      <p>Refreshed sign-in, signup, password reset, and profile settings. Campaign selection now includes <strong>search and retry controls</strong>, with clearer create and join flows and a redesigned account menu.</p>
 
       <hr className="whats-new-modal__divider" />
 
-      <h2 className="whats-new-modal__heading whats-new-modal__heading--upcoming">🔮 Coming Soon: The Next Generation Overhaul!</h2>
-      <p className="whats-new-modal__outlook">
-        Over the next few months, work is beginning on a massive system overhaul. The app is going to become <strong>even more customizable, effortless to use, and seamless to manage</strong>. Stay tuned for a whole new level of control over your campaigns!
-      </p>
+      <h2 className="whats-new-modal__heading">A More Flexible Inventory</h2>
+      <p>A roomier character workspace groups your equipment, wallet, and carried weight, while item actions stay in the <strong>top Inventory bar</strong>. Bags now live on an open-ended canvas with <strong>Move and Interact modes</strong>, touch panning, reset view, and automatic bag arrangement.</p>
+
+      <h2 className="whats-new-modal__heading">Loot &amp; Merchants</h2>
+      <p>Shared loot and merchant sections have clearer layouts and controls. DMs can <strong>hide the shared loot pile</strong> in campaign layout settings without deleting its contents.</p>
+
+      <hr className="whats-new-modal__divider" />
+
+      <h2 className="whats-new-modal__heading">Character &amp; Item Settings</h2>
+      <p>Settings and item forms now scroll while their actions stay visible. Character settings include improved weight-unit handling, bag reordering, and confirmed removals. Item editing and icon selection have clearer fields and <strong>keep your draft when a save fails</strong>.</p>
+
+      <h2 className="whats-new-modal__heading">A Better Compendium</h2>
+      <p><strong>Always-visible search, type and rarity filters, item icons, and detailed previews</strong> make browsing easier. Customization and deletion now have direct controls. Add from Compendium includes inventory and quantity selection, waits for saves, and keeps your selection available for retry if adding fails.</p>
     </div>
   ),
 };

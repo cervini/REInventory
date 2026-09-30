@@ -181,3 +181,49 @@ test('pans the view without changing bags and supports keyboard and reset contro
   expect(inventoryData.containers.pack).not.toHaveProperty('x');
   expect(inventoryData.containers.chest).not.toHaveProperty('y');
 });
+
+test('touch swipes pan empty canvas and cancellation releases the gesture', () => {
+  const { container } = render(<PlayerInventory {...props} />);
+  const viewport = screen.getByRole('region', { name: 'Adventurer bag canvas' });
+  const world = container.querySelector('#canvas-player');
+  const pointer = (type, clientX, clientY, isPrimary = true) => {
+    const event = new MouseEvent(type, { bubbles: true, button: 0, clientX, clientY });
+    Object.assign(event, { pointerType: 'touch', pointerId: 2, isPrimary });
+    fireEvent(viewport, event);
+  };
+  pointer('pointerdown', 250, 250);
+  pointer('pointermove', 70, 100);
+  expect(world).toHaveStyle({ transform: 'translate(-180px, -150px)' });
+  pointer('pointercancel', 70, 100);
+  expect(viewport).not.toHaveClass('inventory-grid__canvas-viewport--panning');
+  pointer('pointermove', 0, 0);
+  expect(world).toHaveStyle({ transform: 'translate(-180px, -150px)' });
+  pointer('pointerdown', 0, 0, false);
+  pointer('pointermove', 100, 100, false);
+  expect(world).toHaveStyle({ transform: 'translate(-180px, -150px)' });
+});
+
+test('move mode pans from a bag without activating its drag handler', () => {
+  const { container } = render(<PlayerInventory {...props} />);
+  const viewport = screen.getByRole('region', { name: 'Adventurer bag canvas' });
+  const world = container.querySelector('#canvas-player');
+  const bag = screen.getAllByTestId('container-card')[0];
+  bag.classList.add('inventory-grid__container-card');
+  const activateDrag = jest.fn();
+  bag.addEventListener('pointerdown', activateDrag);
+  const pointer = (target, type, clientX, clientY) => {
+    const event = new MouseEvent(type, { bubbles: true, button: 0, clientX, clientY });
+    Object.assign(event, { pointerType: 'touch', pointerId: 3, isPrimary: true });
+    fireEvent(target, event);
+  };
+  userEvent.click(screen.getByRole('button', { name: 'Move canvas for Adventurer' }));
+  pointer(bag, 'pointerdown', 200, 200);
+  pointer(viewport, 'pointermove', 100, 50);
+  pointer(viewport, 'pointerup', 100, 50);
+  expect(world).toHaveStyle({ transform: 'translate(-100px, -150px)' });
+  expect(activateDrag).not.toHaveBeenCalled();
+  userEvent.click(screen.getByRole('button', { name: 'Interact with items for Adventurer' }));
+  pointer(bag, 'pointerdown', 200, 200);
+  expect(activateDrag).toHaveBeenCalledTimes(1);
+  expect(viewport).not.toHaveClass('inventory-grid__canvas-viewport--panning');
+});

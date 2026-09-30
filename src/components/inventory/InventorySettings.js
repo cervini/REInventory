@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React, { useId, useRef, useState } from 'react';
+import { Bars3Icon, ChevronDownIcon, ChevronUpIcon, PlusIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { db } from '../../firebase';
 import { doc, writeBatch, getDoc, getDocs, collection } from "firebase/firestore";
 import { calculateCarryingCapacity } from '../../utils/dndUtils';
 import CollapsibleSection from '../ui/CollapsibleSection';
+import useDialog from '../../hooks/useDialog';
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import './InventorySettings.css';
 
 const LBS_TO_KG = 0.453592;
-const KG_TO_LBS = 2.20462;
+const KG_TO_LBS = 1 / LBS_TO_KG;
 const sizeOptions = ['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan'];
 
 function SortableContainerItem({ 
@@ -21,9 +23,11 @@ function SortableContainerItem({
   onMoveDown, 
   isFirst, 
   isLast,
-  isDMInventory 
+  isDMInventory,
+  disabled
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: container.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: container.id, disabled });
+  const fieldId = useId();
   
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -46,14 +50,15 @@ function SortableContainerItem({
             {...listeners} 
             className="inventory-settings__drag-handle"
             title="Drag to Reorder"
+            aria-label={`Reorder ${container.name}`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="inventory-settings__icon" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-            </svg>
+            <Bars3Icon className="inventory-settings__icon" aria-hidden="true" />
           </div>
           
           <input 
             type="text"
+            required
+            aria-label={`Bag name: ${container.name}`}
             value={container.name}
             onChange={(e) => onContainerChange(container.id, 'name', e.target.value)}
             className="inventory-settings__container-name"
@@ -68,10 +73,9 @@ function SortableContainerItem({
             disabled={isFirst}
             className="inventory-settings__reorder-button"
             title="Move Up"
+            aria-label={`Move ${container.name} up`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="inventory-settings__icon" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-            </svg>
+            <ChevronUpIcon className="inventory-settings__icon" aria-hidden="true" />
           </button>
 
           {/* Move Down Button */}
@@ -81,10 +85,9 @@ function SortableContainerItem({
             disabled={isLast}
             className="inventory-settings__reorder-button"
             title="Move Down"
+            aria-label={`Move ${container.name} down`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="inventory-settings__icon" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
+            <ChevronDownIcon className="inventory-settings__icon" aria-hidden="true" />
           </button>
 
           {/* Delete Button */}
@@ -93,32 +96,37 @@ function SortableContainerItem({
             onClick={() => onDeleteContainer(container.id)} 
             className="inventory-settings__delete-container"
             title="Delete Container"
+            aria-label={`Delete ${container.name}`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="inventory-settings__icon" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
+            <TrashIcon className="inventory-settings__icon" aria-hidden="true" />
           </button>
         </div>
       </div>
 
       <div className="inventory-settings__row">
         <div className="inventory-settings__half">
-          <label className="inventory-settings__label">Grid Width</label>
+          <label htmlFor={`${fieldId}-width`} className="inventory-settings__label">Width (cells)</label>
           <input 
+            id={`${fieldId}-width`}
             type="number" 
             min="1" 
+            step="1"
+            required
             value={container.gridWidth} 
-            onChange={(e) => onContainerChange(container.id, 'gridWidth', parseInt(e.target.value, 10) || 1)} 
+            onChange={(e) => onContainerChange(container.id, 'gridWidth', e.target.value)}
             className="inventory-settings__input" 
           />
         </div>
         <div className="inventory-settings__half">
-          <label className="inventory-settings__label">Grid Height</label>
+          <label htmlFor={`${fieldId}-height`} className="inventory-settings__label">Height (cells)</label>
           <input 
+            id={`${fieldId}-height`}
             type="number" 
             min="1" 
+            step="1"
+            required
             value={container.gridHeight} 
-            onChange={(e) => onContainerChange(container.id, 'gridHeight', parseInt(e.target.value, 10) || 1)} 
+            onChange={(e) => onContainerChange(container.id, 'gridHeight', e.target.value)}
             className="inventory-settings__input" 
           />
         </div>
@@ -127,13 +135,13 @@ function SortableContainerItem({
       {!isDMInventory && (
         <div className="inventory-settings__weight-toggle">
           <input 
-            id={`track-${container.id}`} 
+            id={`${fieldId}-track`}
             type="checkbox" 
             checked={container.trackWeight ?? true}
             onChange={(e) => onContainerChange(container.id, 'trackWeight', e.target.checked)} 
             className="inventory-settings__checkbox" 
           />
-          <label htmlFor={`track-${container.id}`} className="inventory-settings__checkbox-label">Track weight for this container</label>
+          <label htmlFor={`${fieldId}-track`} className="inventory-settings__checkbox-label">Count carried weight</label>
         </div>
       )}
     </div>
@@ -154,13 +162,30 @@ export default function InventorySettings({ onClose, campaignId, userId, current
     });
   });
   const [containersToDelete, setContainersToDelete] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [strength, setStrength] = useState(currentSettings.strength || 10);
+  const [pendingAction, setPendingAction] = useState(null);
+  const [error, setError] = useState('');
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const requestInProgress = useRef(false);
+  const formId = useId();
+  const loading = pendingAction !== null;
+  const [strength, setStrength] = useState(currentSettings.strength ?? 10);
   // States for the automatic weight
   const [size, setSize] = useState(currentSettings.size || 'Medium');
   const [useCalculatedWeight, setUseCalculatedWeight] = useState(currentSettings.useCalculatedWeight ?? false);
   // State for the manual weight input field
-  const [manualMaxWeight, setManualMaxWeight] = useState('');
+  const [manualMaxWeight, setManualMaxWeight] = useState(String((currentSettings.totalMaxWeight ?? 0) * (currentSettings.weightUnit === 'kg' ? LBS_TO_KG : 1)));
+  const handleClose = () => {
+    if (requestInProgress.current) return;
+    if (pendingDelete) setPendingDelete(null);
+    else if (confirmLeave) setConfirmLeave(false);
+    else onClose();
+  };
+  const dialogRef = useDialog({ onClose: handleClose, busy: loading });
+  const changeWeightUnit = nextUnit => {
+    if (manualMaxWeight !== '') setManualMaxWeight(String(Number(manualMaxWeight) * (weightUnit === 'kg' ? KG_TO_LBS : 1) * (nextUnit === 'kg' ? LBS_TO_KG : 1)));
+    setWeightUnit(nextUnit);
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -214,8 +239,8 @@ export default function InventorySettings({ onClose, campaignId, userId, current
   // Function to add a new, temporary container to the UI
   const handleAddNewContainer = () => {
     const newContainer = {
-      id: `new-${Date.now()}`, // Temporary ID for the key
-      name: "New Container",
+      id: `new-${crypto.randomUUID()}`,
+      name: "New bag",
       gridWidth: 10,
       gridHeight: 5,
       trackWeight: true,
@@ -236,14 +261,18 @@ export default function InventorySettings({ onClose, campaignId, userId, current
    * @param {string} containerId - The ID of the container to delete.
    */
   const handleDeleteContainer = (containerId) => {
-    if (!window.confirm("Are you sure you want to delete this container and all items within it? This cannot be undone.")) {
-        return;
-    }
+    setPendingDelete(containerId);
+  };
+
+  const confirmDeleteContainer = () => {
+    const containerId = pendingDelete;
+    if (!containerId) return;
     setContainers(prev => prev.filter(c => c.id !== containerId));
     // If it's not a newly added container, add its ID to the list for deletion from Firestore
     if (!containerId.startsWith('new-')) {
         setContainersToDelete(prev => [...prev, containerId]);
     }
+      setPendingDelete(null);
   };
 
   /**
@@ -254,8 +283,24 @@ export default function InventorySettings({ onClose, campaignId, userId, current
    */
   const handleSave = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    if (requestInProgress.current || !e.currentTarget.reportValidity()) return;
+    setError('');
+    if (!characterName.trim() || (!isDMInventory && !useCalculatedWeight && (manualMaxWeight === '' || !Number.isFinite(Number(manualMaxWeight)) || Number(manualMaxWeight) < 0))) {
+      setError('Enter a name and a valid carrying capacity.');
+      return;
+    }
+    if (!isDMInventory && containers.some(container => !container.name.trim() || ![container.gridWidth, container.gridHeight].every(value => Number.isInteger(Number(value)) && Number(value) >= 1))) {
+      setError('Each bag needs a name and positive whole-number dimensions.');
+      return;
+    }
+    if (!isDMInventory && containers.some(container => (container.gridItems || []).some(item => item.x + item.w > Number(container.gridWidth) || item.y + item.h > Number(container.gridHeight)))) {
+      setError('A bag cannot be smaller than the items currently placed inside it.');
+      return;
+    }
+    requestInProgress.current = true;
+    setPendingAction('save');
 
+    try {
     let finalMaxWeightLbs;
     // for DM fields are set to default as they don't really matter
     if (!isDMInventory) {
@@ -290,19 +335,15 @@ export default function InventorySettings({ onClose, campaignId, userId, current
                 : doc(inventoryDocRef, 'containers', container.id);
             
             const containerData = {
-                name: container.name,
-                gridWidth: container.gridWidth,
-                gridHeight: container.gridHeight,
+              name: container.name.trim(),
+              gridWidth: Number(container.gridWidth),
+              gridHeight: Number(container.gridHeight),
                 trackWeight: container.trackWeight ?? true, // 'true' if trackWeight undefined
-                gridItems: container.gridItems || [],
-                trayItems: container.trayItems || [],
-                x: container.x ?? (index * 20),
-                y: container.y ?? (index * 20),
                 order: index,
             };
 
             if (isNew) {
-                batch.set(containerRef, containerData);
+              batch.set(containerRef, { ...containerData, gridItems: [], trayItems: [], x: container.x ?? (index * 20), y: container.y ?? (index * 20) });
             } else {
                 batch.update(containerRef, containerData);
             }
@@ -314,15 +355,15 @@ export default function InventorySettings({ onClose, campaignId, userId, current
         }
     }
 
-    try {
       await batch.commit();
       toast.success("Inventory settings updated!");
       onClose();
     } catch (err) {
-      toast.error("Unable to update inventory settings.");
+      setError('Could not save settings. Your changes are still here; please try again.');
       console.error(err);
     } finally {
-      setLoading(false);
+      requestInProgress.current = false;
+      setPendingAction(null);
     }
   };
 
@@ -333,14 +374,14 @@ export default function InventorySettings({ onClose, campaignId, userId, current
    * A confirmation dialog is shown before proceeding.
    */
   const handleLeaveCampaign = async () => {
+      if (requestInProgress.current || !confirmLeave) return;
       if (isDMInventory) {
         toast.error("The DM cannot leave their own campaign.");
         return;
       }
-        if (!window.confirm("Are you sure you want to leave this campaign? Your inventory will be permanently deleted.")) {
-            return;
-        }
-        setLoading(true);
+        requestInProgress.current = true;
+        setPendingAction('leave');
+        setError('');
         try {
             const batch = writeBatch(db);
             const campaignDocRef = doc(db, 'campaigns', campaignId);
@@ -373,77 +414,89 @@ export default function InventorySettings({ onClose, campaignId, userId, current
             window.location.reload();
 
         } catch (error) {
-            toast.error("Failed to leave campaign.");
+          setError('Could not leave the campaign. Please try again.');
             console.error(error);
-            setLoading(false);
+        } finally {
+          requestInProgress.current = false;
+          setPendingAction(null);
         }
   };
 
   return (
-    <div className="inventory-settings" onClick={onClose}>
-      <div className="inventory-settings__dialog" onClick={e => e.stopPropagation()}>
-        <h3 className="inventory-settings__title">
-          Character & Inventory Settings
-        </h3>
+    <div className="inventory-settings" onClick={event => { if (event.target === event.currentTarget) handleClose(); }}>
+      <div ref={dialogRef} className="inventory-settings__dialog" role="dialog" aria-modal="true" aria-labelledby={`${formId}-title`} aria-busy={loading} tabIndex={-1} onClick={e => e.stopPropagation()}>
+        <div className="inventory-settings__header">
+          <h2 id={`${formId}-title`} className="inventory-settings__title">{isDMInventory ? 'DM Workspace Settings' : 'Character Settings'}</h2>
+          <button type="button" onClick={handleClose} disabled={loading} className="inventory-settings__close" aria-label="Close character settings" title="Close"><XMarkIcon className="inventory-settings__icon" aria-hidden="true" /></button>
+        </div>
         <form onSubmit={handleSave} className="inventory-settings__form">
+          <div className="inventory-settings__content">
+          <fieldset disabled={loading} className="inventory-settings__fields">
           {/* Character Name --- */}
           <div>
-            <label className="inventory-settings__label">Character Name</label>
-            <input type="text" value={characterName} onChange={(e) => setCharacterName(e.target.value)} className="inventory-settings__input" />
+            <label htmlFor={`${formId}-name`} className="inventory-settings__label">{isDMInventory ? 'Workspace name' : 'Character name'}</label>
+            <input id={`${formId}-name`} data-dialog-autofocus required type="text" value={characterName} onChange={(e) => setCharacterName(e.target.value)} className="inventory-settings__input" />
           </div>
           
-          <CollapsibleSection title="Weight Settings" defaultOpen={false}>
+          {!isDMInventory && <section className="inventory-settings__section" aria-labelledby={`${formId}-capacity`}>
+            <h3 id={`${formId}-capacity`} className="inventory-settings__container-title">Carrying capacity</h3>
+            <div className="inventory-settings__weight-toggle">
+              <input id={`${formId}-calculate`} type="checkbox" checked={useCalculatedWeight} onChange={event => setUseCalculatedWeight(event.target.checked)} className="inventory-settings__checkbox" />
+              <label htmlFor={`${formId}-calculate`} className="inventory-settings__checkbox-label">Calculate from strength and size</label>
+            </div>
             {/* Character Stats --- */}
-            {!isDMInventory && (
+            {useCalculatedWeight && (
                 <div className="inventory-settings__weight-stats">
                   <div className="inventory-settings__row">
                     <div className="inventory-settings__half">
-                      <label className="inventory-settings__label">Strength Score</label>
-                      <input type="number" value={strength} onChange={(e) => setStrength(e.target.value)} className="inventory-settings__input" />
+                      <label htmlFor={`${formId}-strength`} className="inventory-settings__label">Strength score</label>
+                      <input id={`${formId}-strength`} type="number" min="0" step="1" required value={strength} onChange={(e) => setStrength(e.target.value)} className="inventory-settings__input" />
                       </div>
                     <div className="inventory-settings__half">
-                      <label className="inventory-settings__label">Character Size</label>
-                      <select value={size} onChange={(e) => setSize(e.target.value)} className="inventory-settings__input">
+                      <label htmlFor={`${formId}-size`} className="inventory-settings__label">Character size</label>
+                      <select id={`${formId}-size`} value={size} onChange={(e) => setSize(e.target.value)} className="inventory-settings__input">
                               {sizeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                           </select>
                       </div>
-                  </div>
-                    <div className="inventory-settings__weight-toggle">
-                      <input id="useCalculatedWeight" type="checkbox" checked={useCalculatedWeight} onChange={(e) => setUseCalculatedWeight(e.target.checked)} className="inventory-settings__checkbox" />
-                      <label htmlFor="useCalculatedWeight" className="inventory-settings__checkbox-label">Automatically calculate max weight from stats (5e rules)</label>
                   </div>
               </div>
             )}
 
             {/* --- Max Weight Section (now conditional) --- */}
             {!isDMInventory && (
-              <div className={`inventory-settings__weight-row ${useCalculatedWeight ? 'inventory-settings__weight-row--calculated' : ''}`}>
+              <div className="inventory-settings__weight-row">
                   <div className="inventory-settings__grow">
-                    <label className="inventory-settings__label">Total Max Weight</label>
+                    <label htmlFor={`${formId}-maximum`} className="inventory-settings__label">Maximum weight</label>
                     <input 
+                      id={`${formId}-maximum`}
                       type="number" 
-                      value={useCalculatedWeight ? calculateCarryingCapacity(strength, size) * (weightUnit === 'kg' ? LBS_TO_KG : 1) : manualMaxWeight} 
+                      min="0"
+                      step="any"
+                      required={!useCalculatedWeight}
+                      value={useCalculatedWeight ? (calculateCarryingCapacity(strength, size) * (weightUnit === 'kg' ? LBS_TO_KG : 1)).toFixed(2) : manualMaxWeight}
                       onChange={(e) => setManualMaxWeight(e.target.value)}
-                      disabled={useCalculatedWeight}
+                      readOnly={useCalculatedWeight}
                       className="inventory-settings__input inventory-settings__input--calculated" 
                     />
                   </div>
                   <div>
-                    <label className="inventory-settings__label">Unit</label>
-                    <select value={weightUnit} onChange={(e) => setWeightUnit(e.target.value)} className="inventory-settings__input">
+                    <label htmlFor={`${formId}-unit`} className="inventory-settings__label">Weight unit</label>
+                    <select id={`${formId}-unit`} value={weightUnit} onChange={(e) => changeWeightUnit(e.target.value)} className="inventory-settings__input">
                       <option value="lbs">lbs</option>
                       <option value="kg">kg</option>
                     </select>
                   </div>
               </div>
             )}
-          </CollapsibleSection>
+          </section>}
 
           {/* Container Management Section */}
-          <CollapsibleSection title="Container Management" defaultOpen={false}>
+          {!isDMInventory && <section className="inventory-settings__section" aria-labelledby={`${formId}-bags`}>
             {!isDMInventory && (
               <div className="inventory-settings__container-section">
-                <h4 className="inventory-settings__container-title">Containers</h4>
+                <div className="inventory-settings__bags-heading"><h3 id={`${formId}-bags`} className="inventory-settings__container-title">Bags <span className="inventory-settings__count">{containers.length}</span></h3><button type="button" onClick={handleAddNewContainer} className="inventory-settings__add-container"><PlusIcon className="inventory-settings__icon" aria-hidden="true" />Add bag</button></div>
+                {pendingDelete && <div role="alert" className="inventory-settings__confirmation"><p>Delete {containers.find(container => container.id === pendingDelete)?.name}? Its items will be permanently deleted when you save.</p><div className="inventory-settings__confirmation-actions"><button type="button" onClick={() => setPendingDelete(null)} className="inventory-settings__button inventory-settings__button--cancel">Keep bag</button><button type="button" onClick={confirmDeleteContainer} className="inventory-settings__button inventory-settings__button--danger">Delete bag</button></div></div>}
+                {containers.length === 0 && <p className="inventory-settings__empty">No bags.</p>}
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                   <SortableContext items={containers.map(c => c.id)} strategy={verticalListSortingStrategy}>
                     <div className="inventory-settings__container-list">
@@ -458,37 +511,39 @@ export default function InventorySettings({ onClose, campaignId, userId, current
                           isFirst={index === 0}
                           isLast={index === containers.length - 1}
                           isDMInventory={isDMInventory}
+                          disabled={loading}
                         />
                       ))}
                     </div>
                   </SortableContext>
                 </DndContext>
-                <button type="button" onClick={handleAddNewContainer} className="inventory-settings__add-container">
-                  + Add New Container
-                </button>
               </div>
             )}
-          </CollapsibleSection>
-          <CollapsibleSection title="Danger Zone" defaultOpen={false}>
+          </section>}
+          {!isDMInventory && <CollapsibleSection title="Campaign membership" defaultOpen={false}>
             {!isDMInventory && (
                 <div className="inventory-settings__danger">
                   <p className="inventory-settings__danger-description">Leaving the campaign will permanently delete your character and their inventory for this campaign.</p>
-                    <button 
+                    {confirmLeave && <div role="alert" className="inventory-settings__confirmation"><p>Leave this campaign and permanently delete this character, all bags, and all items?</p><div className="inventory-settings__confirmation-actions"><button type="button" onClick={() => setConfirmLeave(false)} className="inventory-settings__button inventory-settings__button--cancel">Keep character</button><button type="button" onClick={handleLeaveCampaign} className="inventory-settings__button inventory-settings__button--danger">{pendingAction === 'leave' ? 'Leaving...' : 'Leave campaign'}</button></div></div>}
+                    {!confirmLeave && <button
                         type="button" 
-                        onClick={handleLeaveCampaign} 
+                        onClick={() => setConfirmLeave(true)}
                         disabled={loading} 
                         className="inventory-settings__leave"
                     >
-                      {loading ? 'Leaving...' : 'Leave Campaign'}
-                    </button>
+                      Leave campaign
+                    </button>}
                 </div>
             )}
-          </CollapsibleSection>
+          </CollapsibleSection>}
+          </fieldset>
+          </div>
+          {error && <p role="alert" className="inventory-settings__error">{error}</p>}
           
           <div className="inventory-settings__actions">
-            <button type="button" onClick={onClose} disabled={loading} className="inventory-settings__button inventory-settings__button--cancel">Cancel</button>
-            <button type="submit" disabled={loading} className="inventory-settings__button inventory-settings__button--save">
-              {loading ? 'Saving...' : 'Save All Changes'}
+            <button type="button" onClick={handleClose} disabled={loading} className="inventory-settings__button inventory-settings__button--cancel">Cancel</button>
+            <button type="submit" disabled={loading || !!pendingDelete || confirmLeave} className="inventory-settings__button inventory-settings__button--save">
+              {pendingAction === 'save' ? 'Saving...' : 'Save changes'}
             </button>
           </div>
         </form>

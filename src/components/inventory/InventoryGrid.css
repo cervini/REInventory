@@ -341,7 +341,7 @@
   background-image: linear-gradient(to right, hsl(var(--color-accent) / 0.07) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--color-accent) / 0.07) 1px, transparent 1px);
   background-size: 40px 40px;
   cursor: grab;
-  touch-action: pan-y;
+  touch-action: none;
 }
 
 .inventory-grid__canvas-viewport--panning {
@@ -356,12 +356,32 @@
 
 .inventory-grid__bag-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
+  max-width: 100%;
   gap: 0.5rem;
+}
+
+.inventory-grid__canvas-modes {
+  display: flex;
+  border: 1px solid hsl(var(--color-accent) / 0.25);
+  border-radius: 0.25rem;
+}
+
+.inventory-grid__canvas-modes .inventory-grid__tool[aria-pressed="true"] {
+  background: hsl(var(--color-accent) / 0.15);
+  color: hsl(var(--color-accent));
+}
+
+.inventory-grid__canvas-viewport--move .inventory-grid__container-card,
+.inventory-grid__canvas-viewport--move .inventory-item {
+  cursor: grab;
 }
 
 .inventory-grid__bag-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
@@ -411,6 +431,11 @@
   .inventory-grid__canvas-viewport {
     height: 20rem;
   }
+}
+
+@media (max-width: 540px) {
+  .inventory-grid__bag-actions .inventory-grid__arrange > span { display: none; }
+  .inventory-grid__bag-actions .inventory-grid__arrange { width: 2.75rem; height: 2.75rem; justify-content: center; padding: 0.5rem; }
 }
 
 .inventory-grid__floor {

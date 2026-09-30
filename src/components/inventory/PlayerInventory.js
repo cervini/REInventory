@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ArrowUturnLeftIcon, ChevronDownIcon, Cog6ToothIcon, ScaleIcon, ShieldCheckIcon, Squares2X2Icon } from '@heroicons/react/24/outline';
+import { ArrowUturnLeftIcon, ChevronDownIcon, Cog6ToothIcon, CursorArrowRaysIcon, HandRaisedIcon, ScaleIcon, ShieldCheckIcon, Squares2X2Icon } from '@heroicons/react/24/outline';
 import DraggableContainerCard from './DraggableContainerCard';
 import ItemTray from './ItemTray';
 import Wallet from './Wallet';
@@ -14,6 +14,7 @@ export default function PlayerInventory({
   const panRef = useRef(null);
   const [camera, setCamera] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
+  const [isPanMode, setIsPanMode] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(pointer: coarse)').matches ?? false));
   // We use optional chaining (?.) to prevent errors if inventoryData is not ready.
   const containers = useMemo(() => {
     const list = Object.values(inventoryData?.containers || {});
@@ -47,7 +48,7 @@ export default function PlayerInventory({
   }, [inventoryData, containers]);
 
   const startPan = event => {
-    if (event.pointerType !== 'mouse' || event.button !== 0 || event.target.closest('.inventory-grid__container-card')) return;
+    if (event.button !== 0 || event.isPrimary === false || panRef.current || (!isPanMode && event.target.closest('.inventory-grid__container-card'))) return;
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.focus({ preventScroll: true });
@@ -177,6 +178,10 @@ export default function PlayerInventory({
               <div className="inventory-grid__bag-toolbar">
                 <h4 className="inventory-grid__floor-title">Bags</h4>
                 <div className="inventory-grid__bag-actions">
+                  <div className="inventory-grid__canvas-modes" role="group" aria-label={`Canvas mode for ${characterName}`}>
+                    <button type="button" className="inventory-grid__tool" aria-pressed={!isPanMode} aria-label={`Interact with items for ${characterName}`} title="Interact with items" onClick={() => setIsPanMode(false)}><CursorArrowRaysIcon className="inventory-grid__tool-icon" aria-hidden="true" /></button>
+                    <button type="button" className="inventory-grid__tool" aria-pressed={isPanMode} aria-label={`Move canvas for ${characterName}`} title="Move canvas" onClick={() => setIsPanMode(true)}><HandRaisedIcon className="inventory-grid__tool-icon" aria-hidden="true" /></button>
+                  </div>
                   <button type="button" className="inventory-grid__tool" onClick={() => setCamera({ x: 0, y: 0 })} aria-label={`Reset canvas view for ${characterName}`} title="Reset canvas view">
                     <ArrowUturnLeftIcon className="inventory-grid__tool-icon" aria-hidden="true" />
                   </button>
@@ -191,11 +196,13 @@ export default function PlayerInventory({
                 </div>
               </div>
               <div
-                className={`inventory-grid__canvas-viewport${isPanning ? ' inventory-grid__canvas-viewport--panning' : ''}`}
+                className={`inventory-grid__canvas-viewport${isPanning ? ' inventory-grid__canvas-viewport--panning' : ''}${isPanMode ? ' inventory-grid__canvas-viewport--move' : ''}`}
                 role="region"
                 aria-label={`${characterName} bag canvas`}
                 tabIndex={0}
-                onPointerDown={startPan}
+                onPointerDownCapture={startPan}
+                onTouchStartCapture={event => { if (panRef.current) event.stopPropagation(); }}
+                onContextMenuCapture={event => { if (isPanMode) { event.preventDefault(); event.stopPropagation(); } }}
                 onPointerMove={movePan}
                 onPointerUp={endPan}
                 onPointerCancel={endPan}
@@ -214,7 +221,7 @@ export default function PlayerInventory({
                       onContextMenu={onContextMenu}
                       cellSizes={cellSizes}
                       gridRefs={gridRefs}
-                      isDraggable={isMyInventory || isViewerDM}
+                      isDraggable={!isPanMode && (isMyInventory || isViewerDM)}
                     />
                   ))}
                 </div>

@@ -3,16 +3,16 @@ import { db, auth } from '../firebase';
 import { collection, onSnapshot, getDocs } from 'firebase/firestore';
 
 // Manage the cached Global Compendium
-const getGlobalCompendium = async () => {
+const getGlobalCompendium = async (forceRefresh = false) => {
     const CACHE_KEY = 'globalCompendiumCache';
     const CACHE_DURATION_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
 
     try {
         const cachedData = localStorage.getItem(CACHE_KEY);
-        if (cachedData) {
+        if (cachedData && !forceRefresh) {
             const { timestamp, items } = JSON.parse(cachedData);
             // If the cache is still fresh, return the cached items
-            if (Date.now() - timestamp < CACHE_DURATION_MS) {
+            if (Array.isArray(items) && Date.now() - timestamp >= 0 && Date.now() - timestamp < CACHE_DURATION_MS) {
                 console.log("Loaded Global Compendium from cache.");
                 return items;
             }
@@ -48,36 +48,68 @@ const getGlobalCompendium = async () => {
  * @property {object[]} allItems - A combined array of custom and global items, with custom items appearing first.
  * @property {boolean} isLoading - True while the initial fetch for items is in progress.
  */
-export function useCompendium() {
+export function useCompendium({ liveGlobal = false } = {}) {
   const [globalItems, setGlobalItems] = useState([]);
   const [customItems, setCustomItems] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const currentUser = auth.currentUser;
+  const [loading, setLoading] = useState({ global: true, custom: true });
+  const [errors, setErrors] = useState({ global: '', custom: '' });
+  const [retryVersion, setRetryVersion] = useState(0);
+  const userId = auth.currentUser?.uid;
 
   useEffect(() => {
-    if (!currentUser) {
-      setIsLoading(false);
+    let active = true;
+    setGlobalItems([]);
+    setCustomItems([]);
+    setErrors({ global: '', custom: '' });
+    if (!userId) {
+      setLoading({ global: false, custom: false });
+      setErrors({ global: 'Sign in to browse the compendium.', custom: 'Sign in to browse your items.' });
       return;
     }
+    setLoading({ global: true, custom: true });
 
-    // Fetch the global items using cached logic
-    getGlobalCompendium().then(items => {
-      setGlobalItems(items);
-    });
+    let globalUnsubscribe;
+    if (liveGlobal) {
+      globalUnsubscribe = onSnapshot(collection(db, 'globalCompendium'), snapshot => {
+        if (!active) return;
+        setGlobalItems(snapshot.docs.map(document => ({ ...document.data(), id: document.id })));
+        setLoading(previous => ({ ...previous, global: false }));
+      }, () => {
+        if (!active) return;
+        setErrors(previous => ({ ...previous, global: 'Could not load the global compendium.' }));
+        setLoading(previous => ({ ...previous, global: false }));
+      });
+    } else {
+      getGlobalCompendium(retryVersion > 0).then(items => {
+        if (active) setGlobalItems(items);
+      }).catch(() => {
+        if (active) setErrors(previous => ({ ...previous, global: 'Could not load the global compendium.' }));
+      }).finally(() => {
+        if (active) setLoading(previous => ({ ...previous, global: false }));
+      });
+    }
 
-    // Fetch custom items in real-time
-    const customUnsubscribe = onSnapshot(collection(db, 'compendiums', currentUser.uid, 'masterItems'), (snapshot) => {
+    const customUnsubscribe = onSnapshot(collection(db, 'compendiums', userId, 'masterItems'), (snapshot) => {
+      if (!active) return;
       const items = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       setCustomItems(items);
-      setIsLoading(false); // Loading is complete after custom items arrive
+      setLoading(previous => ({ ...previous, custom: false }));
+    }, () => {
+      if (!active) return;
+      setErrors(previous => ({ ...previous, custom: 'Could not load your custom items.' }));
+      setLoading(previous => ({ ...previous, custom: false }));
     });
 
-    // Clean up the real-time listener on unmount
     return () => {
+      active = false;
+      globalUnsubscribe?.();
       customUnsubscribe();
     };
-  }, [currentUser]);
+  }, [userId, retryVersion, liveGlobal]);
 
-  // Combine both lists, ensuring custom items are prioritized
-  return { allItems: [...customItems, ...globalItems], isLoading };
+  return {
+    allItems: [...customItems, ...globalItems], globalItems, customItems, loading, errors,
+    isLoading: loading.global || loading.custom,
+    retry: () => setRetryVersion(previous => previous + 1),
+  };
 }

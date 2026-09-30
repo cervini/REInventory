@@ -7,14 +7,16 @@
   justify-content: center;
   background-color: rgb(0 0 0 / 0.6);
   backdrop-filter: blur(4px);
+  padding: 1rem;
 }
 
 .inventory-settings__dialog {
   width: 100%;
   max-width: 42rem;
-  max-height: 90vh;
-  overflow: auto;
-  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 2rem);
+  overflow: hidden;
   border: 1px solid hsl(var(--color-accent) / 0.2);
   border-radius: 0.5rem;
   background-image: linear-gradient(to bottom, hsl(var(--color-surface)), hsl(var(--color-background)));
@@ -22,17 +24,101 @@
 }
 
 .inventory-settings__title {
-  margin-bottom: 1.5rem;
+  margin: 0;
   color: hsl(var(--color-accent));
   font-family: Cinzel, serif;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
   line-height: 2rem;
-  text-align: center;
+  overflow-wrap: anywhere;
 }
 
-.inventory-settings__form > :not([hidden]) ~ :not([hidden]) {
-  margin-top: 1.5rem;
+.inventory-settings__header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid hsl(var(--color-accent) / 0.2);
+}
+
+.inventory-settings__form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.inventory-settings__form > .inventory-settings__actions {
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid hsl(var(--color-accent) / 0.2);
+  background: hsl(var(--color-background) / 0.6);
+}
+
+.inventory-settings__content {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  padding: 1.5rem;
+}
+
+.inventory-settings__content::-webkit-scrollbar {
+  display: none;
+}
+
+.inventory-settings__fields {
+  display: block;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.inventory-settings__fields > * + * { margin-top: 1.5rem; }
+.inventory-settings__section { padding-top: 1.25rem; border-top: 1px solid hsl(var(--color-accent) / 0.15); }
+.inventory-settings__section > * + * { margin-top: 1rem; }
+
+.inventory-settings__close {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.25rem;
+  color: hsl(var(--color-text-muted));
+}
+
+.inventory-settings__close:hover { background: hsl(var(--color-accent) / 0.1); color: hsl(var(--color-accent)); }
+.inventory-settings__dialog button:focus-visible { outline: 2px solid hsl(var(--color-accent)); outline-offset: 2px; }
+.inventory-settings__dialog button:disabled { cursor: not-allowed; opacity: 0.5; }
+.inventory-settings__input:focus { outline: 2px solid hsl(var(--color-accent)); outline-offset: 2px; }
+.inventory-settings__input { min-height: 2.75rem; font: inherit; }
+.inventory-settings__error { flex-shrink: 0; padding: 0.75rem 1.5rem; color: hsl(var(--color-destructive)); font-size: 0.875rem; overflow-wrap: anywhere; }
+.inventory-settings__confirmation { padding: 1rem 0; border-block: 1px solid hsl(var(--color-destructive) / 0.3); font-size: 0.875rem; line-height: 1.5; overflow-wrap: anywhere; }
+.inventory-settings__confirmation-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem; }
+.inventory-settings__button--danger { background: hsl(var(--color-destructive) / 0.15); color: hsl(var(--color-destructive)); }
+.inventory-settings__empty { color: hsl(var(--color-text-muted)); }
+.inventory-settings__count { margin-left: 0.5rem; color: hsl(var(--color-text-muted)); font-family: Lato, sans-serif; font-size: 0.875rem; }
+.inventory-settings__bags-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.inventory-settings__bags-heading .inventory-settings__add-container { display: flex; align-items: center; gap: 0.5rem; width: auto; min-height: 2.75rem; border: 1px solid hsl(var(--color-accent) / 0.25); }
+
+@media (max-width: 540px) {
+  .inventory-settings { padding: 0.5rem; }
+  .inventory-settings__dialog { max-height: calc(100dvh - 1rem); }
+  .inventory-settings__header, .inventory-settings__content { padding: 1rem; }
+  .inventory-settings__container-header { flex-wrap: wrap; }
+  .inventory-settings__container-name-group { flex-basis: 100%; }
+  .inventory-settings__reorder { margin-left: auto; }
+  .inventory-settings__form > .inventory-settings__actions { padding: 1rem; }
+  .inventory-settings__actions > button { flex: 1; }
 }
 
 .inventory-settings__label {
@@ -58,7 +144,8 @@
 
 .inventory-settings__row,
 .inventory-settings__weight-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
 }
 
@@ -72,17 +159,17 @@
 }
 
 .inventory-settings__half {
-  width: 50%;
+  min-width: 0;
 }
 
 .inventory-settings__grow,
 .inventory-settings__container-name-group {
   flex-grow: 1;
+  min-width: 0;
 }
 
 .inventory-settings__weight-stats {
-  padding-top: 1rem;
-  border-top: 1px solid hsl(var(--color-surface) / 0.5);
+  padding-top: 0;
 }
 
 .inventory-settings__weight-stats > :not([hidden]) ~ :not([hidden]),
@@ -107,6 +194,8 @@
   border-radius: 0.25rem;
   background-color: hsl(var(--color-background));
   color: hsl(var(--color-primary));
+  flex-shrink: 0;
+  accent-color: hsl(var(--color-accent));
 }
 
 .inventory-settings__checkbox:focus {
@@ -124,7 +213,7 @@
 .inventory-settings__container-title {
   color: hsl(var(--color-accent));
   font-family: Cinzel, serif;
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 700;
   line-height: 1.75rem;
 }
@@ -153,6 +242,11 @@
   cursor: grab;
   touch-action: none;
   transition: background-color 150ms, color 150ms;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
 }
 
 .inventory-settings__drag-handle:hover,
@@ -170,7 +264,10 @@
   flex-grow: 1;
   border-bottom: 1px solid hsl(var(--color-surface) / 0.5);
   background-color: transparent;
-  font-size: 1.125rem;
+  min-width: 0;
+  width: 100%;
+  min-height: 2.75rem;
+  font-size: 1rem;
   font-weight: 700;
   line-height: 1.75rem;
 }
@@ -182,6 +279,7 @@
 
 .inventory-settings__reorder {
   gap: 0.25rem;
+  flex-shrink: 0;
 }
 
 .inventory-settings__reorder-button,
@@ -189,6 +287,10 @@
   padding: 0.375rem;
   border-radius: 0.25rem;
   transition: background-color 150ms, color 150ms;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
 }
 
 .inventory-settings__reorder-button {
@@ -226,9 +328,7 @@
 }
 
 .inventory-settings__danger {
-  margin-top: 2rem;
-  padding-top: 1rem;
-  border-top: 1px solid hsl(var(--color-destructive) / 0.2);
+  margin-top: 0;
 }
 
 .inventory-settings__danger-description {
@@ -245,6 +345,7 @@
   color: hsl(var(--color-text-base));
   font-weight: 700;
   transition: background-color 150ms, color 150ms;
+  min-height: 2.75rem;
 }
 
 .inventory-settings__leave {

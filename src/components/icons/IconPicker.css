@@ -6,6 +6,7 @@
   align-items: center;
   justify-content: center;
   background-color: rgb(0 0 0 / 0.6);
+  padding: 1rem;
 }
 
 .icon-picker__dialog {
@@ -13,7 +14,7 @@
   flex-direction: column;
   width: 100%;
   max-width: 42rem;
-  height: 75%;
+  height: min(36rem, calc(100dvh - 2rem));
   padding: 1.5rem;
   border: 1px solid hsl(var(--color-accent) / 0.2);
   border-radius: 0.5rem;
@@ -22,10 +23,10 @@
 }
 
 .icon-picker__title {
-  margin-bottom: 1rem;
+  margin: 0;
   color: hsl(var(--color-accent));
   font-family: Cinzel, serif;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
   line-height: 2rem;
 }
@@ -46,12 +47,13 @@
 
 .icon-picker__grid {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));
   grid-auto-rows: min-content;
   align-content: start;
   gap: 1rem;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .icon-picker__option {
@@ -93,8 +95,21 @@
   color: hsl(var(--color-text-base));
   font-weight: 700;
   transition: background-color 150ms;
+  min-height: 2.75rem;
 }
 
 .icon-picker__cancel:hover {
   background-color: hsl(var(--color-surface) / 0.8);
+}
+
+.icon-picker__header { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.icon-picker__close { display: grid; place-items: center; flex-shrink: 0; width: 2.75rem; height: 2.75rem; border-radius: 0.25rem; color: hsl(var(--color-text-muted)); }
+.icon-picker__close svg { width: 1.25rem; height: 1.25rem; }
+.icon-picker__close:hover { background: hsl(var(--color-accent) / 0.1); color: hsl(var(--color-accent)); }
+.icon-picker button:focus-visible { outline: 2px solid hsl(var(--color-accent)); outline-offset: -2px; }
+.icon-picker__search { min-height: 2.75rem; }
+@media (max-width: 540px) {
+  .icon-picker { padding: 0.5rem; }
+  .icon-picker__dialog { padding: 1rem; height: calc(100dvh - 1rem); }
+  .icon-picker__grid { gap: 0.5rem; }
 }

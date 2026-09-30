@@ -573,13 +573,13 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
 
     if (!campaignId || !finalPlayerId) {
       toast.error("Could not determine the target player.");
-      return;
+      return false;
     }
 
     const playerInventory = inventories[finalPlayerId];
     if (!playerInventory) {
       toast.error("Target inventory not found.");
-      return;
+      return false;
     }
 
     const isTargetDM = campaign?.dmId === finalPlayerId;
@@ -606,7 +606,7 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
         if (!container) {
           console.error("Critical Error: Container not found during edit.", { containerId, finalPlayerId });
           toast.error("Error: Container not found. Try refreshing.");
-          return;
+          return false;
         }
 
         const otherItems = (container.gridItems || []).filter(i => i.id !== originalItem.id);
@@ -652,7 +652,7 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
           const container = playerInventory.containers?.[containerId];
           if (!container) {
             toast.error("DM Container not found.");
-            return;
+            return false;
           }
           const updatedTrayItems = (container.trayItems || []).map(i => i.id === originalItem.id ? { ...i, ...itemData } : i);
           const containerDocRef = doc(db, "campaigns", campaignId, "inventories", finalPlayerId, "containers", containerId);
@@ -689,10 +689,12 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
         toast.error("Failed to add item. Reverting changes.");
         console.error("Firestore write failed:", error);
         setInventoriesOptimistic(originalInventories);
+        return false;
       }
     }
 
     setItemToEdit(null);
+    return true;
   };
 
   /**
