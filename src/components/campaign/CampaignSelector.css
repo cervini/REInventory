@@ -182,8 +182,7 @@
   opacity: 0.6;
 }
 
-.campaign-selector button:focus-visible,
-.campaign-selector__support:focus-visible {
+.campaign-selector button:focus-visible {
   outline: 2px solid hsl(var(--color-accent));
   outline-offset: 3px;
 }
@@ -330,22 +329,6 @@
 
 .campaign-selector__footer {
   padding: 0 1rem 1.5rem;
-}
-
-.campaign-selector__support {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  min-height: 2.75rem;
-  color: hsl(var(--color-text-muted));
-  font-size: 0.75rem;
-  line-height: 1.5;
-  transition: color 200ms;
-}
-
-.campaign-selector__support:hover {
-  color: hsl(var(--color-accent));
 }
 
 @media (max-width: 640px) {

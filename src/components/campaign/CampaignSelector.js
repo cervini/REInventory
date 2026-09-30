@@ -1,24 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowPathIcon, ArrowRightOnRectangleIcon, ChevronRightIcon, ClipboardDocumentIcon, FolderIcon, HeartIcon, MagnifyingGlassIcon, PlusIcon, TrashIcon, UserPlusIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, ArrowRightOnRectangleIcon, ChevronRightIcon, ClipboardDocumentIcon, FolderIcon, MagnifyingGlassIcon, PlusIcon, TrashIcon, UserPlusIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { collection, doc, setDoc, getDoc, query, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import JoinCampaign from './JoinCampaign';
+import BuyMeACoffeeButton from '../ui/BuyMeACoffeeButton';
 import WhatsNewModal, { whatsNewConfig } from '../ui/WhatsNewModal';
 import { generateJoinCode } from '../../utils/codeGenerator';
 import './CampaignSelector.css';
-
-const BuyMeACoffeeButton = () => (
-  <a 
-    href="https://paypal.me/simonecervini" 
-    target="_blank"
-    rel="noopener noreferrer"
-    className="campaign-selector__support"
-  >
-    <HeartIcon className="campaign-selector__icon" aria-hidden="true" />
-    <span>Support the project</span>
-  </a>
-);
 
 // Recieve a function from App.js to set the active campaign
 export default function CampaignSelector({ onCampaignSelected }) {

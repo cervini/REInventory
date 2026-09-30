@@ -5,6 +5,7 @@ import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { GoogleAuthProvider, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import Login from './Login';
 import SignUp from './SignUp';
+import BuyMeACoffeeButton from '../ui/BuyMeACoffeeButton';
 import './Auth.css';
 
 const getAuthErrorMessage = (error, action) => {
@@ -59,21 +60,6 @@ const checkAndCreateUserProfile = async (user) => {
     toast.success("Welcome! Your profile has been created.");
   }
 };
-
-const BuyMeACoffeeButton = () => (
-  <a 
-    href="https://paypal.me/simonecervini" 
-    target="_blank" 
-    rel="noopener noreferrer"
-    className="auth__support"
-  >
-    <svg xmlns="http://www.w3.org/2000/svg" className="auth__support-icon" viewBox="0 0 20 20" fill="currentColor">
-      <path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V5z" />
-      <path d="M2 10.5V15a2 2 0 002 2h12a2 2 0 002-2v-4.5A2.5 2.5 0 0017.5 8h-15A2.5 2.5 0 000 10.5zM10 13a1 1 0 110-2 1 1 0 010 2z" />
-    </svg>
-    <span>Support the project</span>
-  </a>
-);
 
 /**
  * A component that handles the user authentication flow. It conditionally renders

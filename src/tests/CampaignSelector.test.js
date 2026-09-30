@@ -100,6 +100,16 @@ const renderCampaigns = async (campaigns = [ownedCampaign, joinedCampaign], onCa
   return onCampaignSelected;
 };
 
+test('uses the shared support link on the campaigns page', async () => {
+  await renderCampaigns();
+  const supportLink = screen.getByRole('link', { name: 'Support the project' });
+  expect(supportLink).toHaveClass('buy-me-a-coffee-button');
+  expect(supportLink).toHaveAttribute('href', 'https://paypal.me/simonecervini');
+  expect(supportLink).toHaveAttribute('target', '_blank');
+  expect(supportLink).toHaveAttribute('rel', 'noopener noreferrer');
+  expect(supportLink.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+});
+
 test('shows sorted campaigns with roles, codes and owner-only actions', async () => {
   await renderCampaigns();
   const rows = within(screen.getByRole('list', { name: 'Campaigns' })).getAllByRole('listitem');

@@ -29,6 +29,16 @@ const fillLogin = () => {
   userEvent.type(screen.getByLabelText('Password'), 'correct horse battery staple');
 };
 
+test('uses the shared support link on the authentication page', () => {
+  render(<Auth />);
+  const supportLink = screen.getByRole('link', { name: 'Support the project' });
+  expect(supportLink).toHaveClass('buy-me-a-coffee-button');
+  expect(supportLink).toHaveAttribute('href', 'https://paypal.me/simonecervini');
+  expect(supportLink).toHaveAttribute('target', '_blank');
+  expect(supportLink).toHaveAttribute('rel', 'noopener noreferrer');
+  expect(supportLink.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+});
+
 test('submits a validated login with Enter and preserves the password', async () => {
   signInWithEmailAndPassword.mockResolvedValue({});
   render(<Auth />);
