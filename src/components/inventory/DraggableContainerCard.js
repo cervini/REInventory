@@ -13,8 +13,8 @@ export default function DraggableContainerCard({ container, playerId, isViewerDM
 
   const style = {
     position: 'absolute',
-    left: Math.max(0, container.x || 0),
-    top: Math.max(0, container.y || 0),
+    left: container.x || 0,
+    top: container.y || 0,
     transform: transform ? CSS.Translate.toString(transform) : undefined,
     opacity: isDragging ? 0 : 1,
     zIndex: isDragging ? 50 : 10,

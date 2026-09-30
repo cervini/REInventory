@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PlayerInventory from '../components/inventory/PlayerInventory';
 import { InventoryItemVisual } from '../components/inventory/InventoryItem';
@@ -10,8 +10,8 @@ jest.mock('../components/icons/DynamicIcon', () => ({
 }));
 jest.mock('../components/inventory/DraggableContainerCard', () => ({ container }) =>
   require('react').createElement('div', { 'data-testid': 'container-card' }, container.name));
-jest.mock('../components/inventory/ItemTray', () => ({ containerId, items }) =>
-  require('react').createElement('div', { 'data-testid': `tray-${containerId}` }, items.length));
+jest.mock('../components/inventory/ItemTray', () => ({ containerId, items, emptyMessage }) =>
+  require('react').createElement('div', { 'data-testid': `tray-${containerId}`, 'data-empty-message': emptyMessage }, items.length));
 jest.mock('../components/inventory/Wallet', () => () =>
   require('react').createElement('span', { 'data-testid': 'wallet' }));
 jest.mock('../components/inventory/WeightCounter', () => ({ currentWeight }) =>
@@ -55,6 +55,7 @@ test('hides wallet and settings on the DM inventory but keeps them on a player i
   const { container, rerender } = render(<PlayerInventory {...props} />);
   expect(container.querySelectorAll('.inventory-grid__player-action')).toHaveLength(2);
   expect(screen.getByTestId('wallet')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Floor / Ground' })).toBeInTheDocument();
 
   rerender(<PlayerInventory
     {...props}
@@ -64,7 +65,11 @@ test('hides wallet and settings on the DM inventory but keeps them on a player i
   />);
   expect(container.querySelectorAll('.inventory-grid__player-action')).toHaveLength(0);
   expect(screen.queryByTestId('wallet')).not.toBeInTheDocument();
-  expect(screen.getByText('Adventurer')).toBeInTheDocument();
+  expect(screen.getByRole('region', { name: 'DM workspace' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'DM workspace' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Managed items' })).not.toBeInTheDocument();
+  expect(screen.queryByText('Floor / Ground')).not.toBeInTheDocument();
+  expect(screen.getByTestId('tray-tray')).toHaveAttribute('data-empty-message', 'No managed items.');
   expect(screen.getByTestId('tray-tray')).toBeInTheDocument();
 });
 
@@ -102,12 +107,12 @@ test('keeps item icons, clipped names, and quantities in drag previews', () => {
   expect(screen.getByText('3')).toHaveClass('inventory-item__quantity');
 });
 
-test('floating inventory tools give players named item actions without DM controls', () => {
+test('toolbar inventory tools give players named item actions without DM controls', () => {
   const onOpenCompendium = jest.fn();
   const onAddItem = jest.fn();
   render(<InventoryActions isDM={false} onOpenCompendium={onOpenCompendium} onAddItem={onAddItem} />);
   expect(screen.getByRole('group', { name: 'Inventory tools' })).toBeInTheDocument();
-  expect(screen.getByRole('group', { name: 'Inventory tools' })).toHaveClass('inventory-grid__tools--floating');
+  expect(screen.getByRole('group', { name: 'Inventory tools' })).not.toHaveClass('inventory-grid__tools--floating');
   userEvent.click(screen.getByRole('button', { name: 'Add Item from Compendium' }));
   userEvent.click(screen.getByRole('button', { name: 'Create New Item' }));
   expect(onOpenCompendium).toHaveBeenCalledTimes(1);
@@ -120,10 +125,59 @@ test('floating inventory tools give players named item actions without DM contro
   });
 });
 
-test('floating inventory tools preserve the merchant action for the DM', () => {
+test('toolbar inventory tools preserve the merchant action for the DM', () => {
   const onCreateMerchant = jest.fn();
   render(<InventoryActions isDM onOpenCompendium={jest.fn()} onAddItem={jest.fn()} onCreateMerchant={onCreateMerchant} />);
   userEvent.click(screen.getByRole('button', { name: 'Create Merchant' }));
   expect(onCreateMerchant).toHaveBeenCalledTimes(1);
   expect(screen.getAllByRole('button')).toHaveLength(3);
+});
+
+test('character controls and equipment share a rail beside the bag workspace', () => {
+  const onArrangeContainers = jest.fn();
+  const { container, rerender } = render(<PlayerInventory {...props} onArrangeContainers={onArrangeContainers} />);
+  const rail = container.querySelector('.inventory-grid__sidebar');
+  expect(rail).toContainElement(screen.getByRole('heading', { name: 'Adventurer' }));
+  expect(rail).toContainElement(screen.getByTestId('wallet'));
+  expect(rail).toContainElement(screen.getByRole('group', { name: 'Coin pouch' }));
+  expect(rail).toContainElement(screen.getByRole('group', { name: 'Carried weight' }));
+  expect(screen.queryByText('Coin pouch')).not.toBeInTheDocument();
+  expect(screen.queryByText('Carried weight')).not.toBeInTheDocument();
+  expect(rail).toContainElement(screen.getByTestId('tray-equipped'));
+  expect(rail).toContainElement(screen.getByRole('button', { name: 'Inventory settings for Adventurer' }));
+  expect(container.querySelector('.inventory-grid__canvas-viewport')).toContainElement(container.querySelector('#canvas-player'));
+  userEvent.click(screen.getByRole('button', { name: 'Arrange bags for Adventurer' }));
+  expect(onArrangeContainers).toHaveBeenCalledWith([inventoryData.containers.chest, inventoryData.containers.pack]);
+  rerender(<PlayerInventory {...props} user={{ uid: 'other' }} onArrangeContainers={onArrangeContainers} />);
+  expect(screen.queryByRole('button', { name: 'Arrange bags for Adventurer' })).not.toBeInTheDocument();
+});
+
+test('pans the view without changing bags and supports keyboard and reset controls', () => {
+  const { container } = render(<PlayerInventory {...props} />);
+  const viewport = screen.getByRole('region', { name: 'Adventurer bag canvas' });
+  const world = container.querySelector('#canvas-player');
+  const pointer = (type, clientX, clientY) => {
+    const event = new MouseEvent(type, { bubbles: true, button: 0, clientX, clientY });
+    Object.assign(event, { pointerType: 'mouse', pointerId: 1 });
+    fireEvent(viewport, event);
+  };
+  pointer('pointerdown', 200, 100);
+  pointer('pointermove', 350, 160);
+  expect(world).toHaveStyle({ transform: 'translate(150px, 60px)' });
+  pointer('pointerup', 350, 160);
+  expect(viewport).not.toHaveClass('inventory-grid__canvas-viewport--panning');
+  fireEvent.keyDown(viewport, { key: 'ArrowRight' });
+  expect(world).toHaveStyle({ transform: 'translate(70px, 60px)' });
+  userEvent.click(screen.getByRole('button', { name: 'Reset canvas view for Adventurer' }));
+  expect(world).toHaveStyle({ transform: 'translate(0px, 0px)' });
+  viewport.scrollLeft = 320;
+  viewport.scrollTop = 80;
+  fireEvent.scroll(viewport);
+  expect(world).toHaveStyle({ transform: 'translate(-320px, -80px)' });
+  expect(viewport.scrollLeft).toBe(0);
+  expect(viewport.scrollTop).toBe(0);
+  userEvent.click(screen.getByRole('button', { name: 'Reset canvas view for Adventurer' }));
+  expect(world).toHaveStyle({ transform: 'translate(0px, 0px)' });
+  expect(inventoryData.containers.pack).not.toHaveProperty('x');
+  expect(inventoryData.containers.chest).not.toHaveProperty('y');
 });

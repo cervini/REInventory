@@ -71,12 +71,30 @@ export function findFirstAvailableSlot(items, newItem, gridWidth, gridHeight) {
   return null;
 }
 
-export function getContainerDropPosition(canvasElement, overlayRect) {
+export function arrangeContainerPositions(containers, availableWidth, gap = 16) {
+  let x = gap;
+  let y = gap;
+  let rowHeight = 0;
+  return containers.map(container => {
+    if (x > gap && x + container.width + gap > availableWidth) {
+      x = gap;
+      y += rowHeight + gap;
+      rowHeight = 0;
+    }
+    const position = { id: container.id, x, y };
+    x += container.width + gap;
+    rowHeight = Math.max(rowHeight, container.height);
+    return position;
+  });
+}
+
+export function getContainerDropPosition(canvasElement, overlayRect, { unbounded = false } = {}) {
   const canvasRect = canvasElement.getBoundingClientRect();
   const maxX = Math.max(0, canvasElement.clientWidth - overlayRect.width);
   const maxY = Math.max(0, canvasElement.clientHeight - overlayRect.height);
   const x = overlayRect.left - canvasRect.left - canvasElement.clientLeft;
   const y = overlayRect.top - canvasRect.top - canvasElement.clientTop;
+  if (unbounded) return { x, y, wasClamped: false };
   const boundedX = Math.max(0, Math.min(x, maxX));
   const boundedY = Math.max(0, Math.min(y, maxY));
 

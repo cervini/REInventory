@@ -4,7 +4,7 @@ import './InventoryGrid.css';
 
 export default function InventoryActions({ isDM, onOpenCompendium, onAddItem, onCreateMerchant }) {
   return (
-    <div className="inventory-grid__tools inventory-grid__tools--floating" role="group" aria-label="Inventory tools">
+    <div className="inventory-grid__tools" role="group" aria-label="Inventory tools">
       <button
         type="button"
         onClick={onOpenCompendium}

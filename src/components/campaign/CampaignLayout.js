@@ -63,6 +63,7 @@ export default function CampaignLayout({ campaign, inventories, playerProfiles, 
     const initialOrder = useMemo(() => campaign.layout?.order || campaign.players || [], [campaign]);
     const [playerOrder, setPlayerOrder] = useState(initialOrder);
     const [visiblePlayers, setVisiblePlayers] = useState(campaign.layout?.visible || {});
+    const [lootEnabled, setLootEnabled] = useState(campaign.layout?.lootEnabled !== false);
     const [showCampaignSettings, setShowCampaignSettings] = useState(false);
     const [loading, setLoading] = useState(false);
 
@@ -121,6 +122,7 @@ export default function CampaignLayout({ campaign, inventories, playerProfiles, 
             const campaignDocRef = doc(db, 'campaigns', campaign.id);
             await updateDoc(campaignDocRef, {
                 'layout.order': playerOrder,
+                'layout.lootEnabled': lootEnabled,
                 'layout.visible': Object.fromEntries(
                     Object.entries(visiblePlayers).filter(([playerId]) => campaign.players.includes(playerId))
                 )
@@ -201,6 +203,17 @@ export default function CampaignLayout({ campaign, inventories, playerProfiles, 
             <div className="campaign-layout__dialog" onClick={e => e.stopPropagation()}>
                 <h3 className="campaign-layout__title">Manage Layout</h3>
                 <p className="campaign-layout__description">Drag players to reorder them and use the checkbox to toggle their visibility.</p>
+                <label className="campaign-layout__loot-option">
+                    <input
+                        type="checkbox"
+                        checked={lootEnabled}
+                        onChange={event => setLootEnabled(event.target.checked)}
+                        disabled={loading}
+                        className="campaign-layout__visibility"
+                    />
+                    <span>Shared loot pile</span>
+                    <span className="campaign-layout__loot-state" aria-hidden="true">{lootEnabled ? 'Enabled' : 'Disabled'}</span>
+                </label>
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                     <SortableContext items={playerOrder} strategy={verticalListSortingStrategy}>
                         <ul className="campaign-layout__list">

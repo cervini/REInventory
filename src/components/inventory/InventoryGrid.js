@@ -9,7 +9,7 @@ import LootPileSection from './LootPileSection';
 import MerchantSection from './MerchantSection';
 import InventoryActions from './InventoryActions';
 import { InventoryItemVisual } from './InventoryItem';
-import { findFirstAvailableSlot, getContainerDropPosition, onOtherItem, outOfBounds } from '../../utils/gridUtils';
+import { arrangeContainerPositions, findFirstAvailableSlot, getContainerDropPosition, onOtherItem, outOfBounds } from '../../utils/gridUtils';
 import AddItem from '../items/AddItem';
 import ContextMenu from '../ui/ContextMenu';
 import SplitStack from './SplitStack';
@@ -42,6 +42,7 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
   const isLoading = inventoriesLoading || profilesLoading;
 
   const isDM = campaign?.dmId === user?.uid;
+  const lootEnabled = campaign?.layout?.lootEnabled !== false;
 
   const [showAddItem, setShowAddItem] = useState(false);
   const [contextMenu, setContextMenu] = useState({ visible: false, position: null, item: null, playerId: null, actions: [] });
@@ -56,9 +57,11 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
   const [showLayoutSettings, setShowLayoutSettings] = useState(false);
   const [isLootExpanded, setIsLootExpanded] = useState(true);
   const [restoringDMInventory, setRestoringDMInventory] = useState(false);
+  const [arrangingInventory, setArrangingInventory] = useState(null);
 
   const gridRefs = useRef({});
   const containerOverlayRef = useRef(null);
+  const arrangingRef = useRef(false);
 
   useEffect(() => {
     fetchCampaign(campaignId);
@@ -122,6 +125,44 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
     setShowEquipped(prev => ({ ...prev, [playerId]: !(prev[playerId] ?? false) }));
   };
 
+  const handleArrangeContainers = async (playerId, containers) => {
+    if (arrangingRef.current || (!isDM && user.uid !== playerId) || containers.length === 0) return;
+    const canvas = document.getElementById(`canvas-${playerId}`);
+    if (!canvas) return;
+    const dimensions = containers.map(container => {
+      const card = document.getElementById(`container-card-${playerId}-${container.id}`);
+      return { id: container.id, width: card?.offsetWidth, height: card?.offsetHeight };
+    });
+    if (dimensions.some(container => !container.width || !container.height)) {
+      toast.error('Bags are not ready to arrange.');
+      return;
+    }
+    const positions = arrangeContainerPositions(dimensions, canvas.parentElement.clientWidth);
+    const batch = writeBatch(db);
+    positions.forEach(({ id, x, y }) => {
+      batch.update(doc(db, 'campaigns', campaignId, 'inventories', playerId, 'containers', id), { x, y });
+    });
+    arrangingRef.current = true;
+    setArrangingInventory(playerId);
+    try {
+      await batch.commit();
+      const current = useCampaignStore.getState();
+      const inventory = current.inventories[playerId];
+      if (current.campaignData?.id !== campaignId || !inventory) return;
+      const nextContainers = { ...inventory.containers };
+      positions.forEach(({ id, x, y }) => {
+        if (nextContainers[id]) nextContainers[id] = { ...nextContainers[id], x, y };
+      });
+      setInventoriesOptimistic({ ...current.inventories, [playerId]: { ...inventory, containers: nextContainers } });
+      return true;
+    } catch (error) {
+      toast.error('Failed to arrange bags. Please try again.');
+    } finally {
+      arrangingRef.current = false;
+      setArrangingInventory(null);
+    }
+  };
+
   const handleUpdateLootName = async (newName) => {
     if (!campaignId || !newName.trim()) return;
     try {
@@ -179,10 +220,10 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
   }, [containerStructureSignature, inventories]);
 
   useEffect(() => {
-    if (!isLoading && inventories && !inventories['public-loot'] && isDM) {
+    if (!isLoading && lootEnabled && inventories && !inventories['public-loot'] && isDM) {
       createLootPile(campaignId);
     }
-  }, [inventories, isLoading, isDM, campaignId, createLootPile]);
+  }, [inventories, isLoading, lootEnabled, isDM, campaignId, createLootPile]);
 
   const handleContextMenu = (event, item, playerId, source, containerId) => {
     event.preventDefault();
@@ -773,10 +814,7 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
         const canvasElement = document.getElementById(`canvas-${activePlayerId}`);
         if (!canvasElement || !overlayRect) return;
 
-        const { x: newX, y: newY, wasClamped } = getContainerDropPosition(canvasElement, overlayRect);
-        if (wasClamped) {
-          toast("Container kept within the canvas.");
-        }
+        const { x: newX, y: newY } = getContainerDropPosition(canvasElement, overlayRect, { unbounded: true });
 
         const containerRef = doc(db, 'campaigns', campaignId, 'inventories', activePlayerId, 'containers', containerData.id);
 
@@ -1381,12 +1419,23 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
                 {isDM && <span>{orderedAndVisibleInventories.length} of {Object.keys(playerInventories).length} inventories visible</span>}
               </p>
             </div>
-            {isDM && <button type="button" onClick={() => setShowLayoutSettings(true)} className="inventory-grid__tool" aria-label="Manage campaign" title="Manage campaign"><AdjustmentsHorizontalIcon className="inventory-grid__tool-icon" aria-hidden="true" /></button>}
+            <div className="inventory-grid__toolbar-actions">
+              <InventoryActions
+                isDM={isDM}
+                onOpenCompendium={() => setShowCompendium(true)}
+                onAddItem={() => setShowAddItem(true)}
+                onCreateMerchant={() => {
+                  const name = prompt("Enter Shop Name (e.g. 'Village Smithy'):");
+                  if (name) createMerchant(campaignId, name);
+                }}
+              />
+              {isDM && <button type="button" onClick={() => setShowLayoutSettings(true)} className="inventory-grid__tool inventory-grid__tool--campaign" aria-label="Manage campaign" title="Manage campaign"><AdjustmentsHorizontalIcon className="inventory-grid__tool-icon" aria-hidden="true" /></button>}
+            </div>
           </header>
           <div className="inventory-grid__sections">
 
             {/* --- LOOT PILE SECTION --- */}
-            {lootPileData && (isDM || lootPileData.isVisibleToPlayers) && (
+            {lootEnabled && lootPileData && (isDM || lootPileData.isVisibleToPlayers) && (
               <LootPileSection
                 lootPileData={lootPileData}
                 isDM={isDM}
@@ -1434,18 +1483,11 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
                 onContextMenu={handleContextMenu}
                 onToggleEquipped={() => toggleEquipped(playerId)}
                 isEquippedVisible={showEquipped[playerId] ?? false}
+                onArrangeContainers={containers => handleArrangeContainers(playerId, containers)}
+                isArrangingContainers={arrangingInventory !== null}
               />
             ))}
           </div>
-          <InventoryActions
-            isDM={isDM}
-            onOpenCompendium={() => setShowCompendium(true)}
-            onAddItem={() => setShowAddItem(true)}
-            onCreateMerchant={() => {
-              const name = prompt("Enter Shop Name (e.g. 'Village Smithy'):");
-              if (name) createMerchant(campaignId, name);
-            }}
-          />
         </div>
         <DragOverlay>
           {activeContainer ? (

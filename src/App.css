@@ -43,6 +43,10 @@
   scrollbar-width: none;
 }
 
+.app__content--inventory {
+  max-width: none;
+}
+
 .app__body::-webkit-scrollbar {
   display: none;
 }

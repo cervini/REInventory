@@ -177,7 +177,7 @@ export default function App() {
         />
       )}
 
-       <div className="app__content">
+      <div className={`app__content${user && campaignId && currentPage === 'main' ? ' app__content--inventory' : ''}`}>
         <AppHeader
           user={user}
           userProfile={userProfile}
