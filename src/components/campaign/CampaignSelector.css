@@ -1,0 +1,200 @@
+.campaign-selector {
+  width: 100%;
+  max-width: 28rem;
+  margin-right: auto;
+  margin-left: auto;
+  padding: 2rem;
+  border: 1px solid hsl(var(--color-accent) / 0.2);
+  border-radius: 0.5rem;
+  background-color: hsl(var(--color-surface));
+  box-shadow: 0 10px 15px -3px hsl(var(--color-accent) / 0.1), 0 4px 6px -4px hsl(var(--color-accent) / 0.1);
+}
+
+.campaign-selector__empty {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border: 1px dashed hsl(var(--color-surface) / 0.5);
+  border-radius: 0.5rem;
+  color: hsl(var(--color-text-muted));
+  text-align: center;
+}
+
+.campaign-selector__campaigns {
+  margin-bottom: 2rem;
+}
+
+.campaign-selector__title {
+  margin-bottom: 1rem;
+  color: hsl(var(--color-accent));
+  font-family: Cinzel, serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 2rem;
+  text-align: center;
+}
+
+.campaign-selector__list > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.5rem;
+}
+
+.campaign-selector__row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.campaign-selector__campaign-button {
+  flex-grow: 1;
+  padding: 0.75rem 1rem;
+  border-radius: 0.25rem;
+  background-color: hsl(var(--color-background));
+  color: hsl(var(--color-text-base));
+  font-weight: 700;
+  text-align: left;
+  transition: background-color 200ms;
+}
+
+.campaign-selector__campaign-button:hover {
+  background-color: hsl(var(--color-surface) / 0.8);
+}
+
+.campaign-selector__campaign-button:focus,
+.campaign-selector__row-button:focus {
+  outline: none;
+}
+
+.campaign-selector__row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.campaign-selector__row-button {
+  flex-shrink: 0;
+  padding: 0.75rem;
+  border-radius: 0.25rem;
+  color: hsl(var(--color-text-base));
+  transition: background-color 200ms;
+}
+
+.campaign-selector__row-button:disabled {
+  opacity: 0.5;
+}
+
+.campaign-selector__row-button--add {
+  background-color: hsl(var(--color-primary) / 0.8);
+}
+
+.campaign-selector__row-button--add:hover {
+  background-color: hsl(var(--color-primary));
+}
+
+.campaign-selector__row-button--delete {
+  background-color: hsl(var(--color-destructive));
+}
+
+.campaign-selector__row-button--delete:hover {
+  background-color: hsl(var(--color-destructive) / 0.8);
+}
+
+.campaign-selector__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.campaign-selector__forms {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.campaign-selector__create,
+.campaign-selector__join {
+  width: 100%;
+}
+
+.campaign-selector__create {
+  padding: 1rem;
+  border: 1px solid hsl(var(--color-surface) / 0.5);
+  border-radius: 0.5rem;
+}
+
+.campaign-selector__create > :not([hidden]) ~ :not([hidden]),
+.campaign-selector__join > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem;
+}
+
+.campaign-selector__input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid hsl(var(--color-surface) / 0.5);
+  border-radius: 0.375rem;
+  background-color: hsl(var(--color-background));
+}
+
+.campaign-selector__input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--color-accent));
+}
+
+.campaign-selector__form-button {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  border: 1px solid hsl(var(--color-primary));
+  border-radius: 0.25rem;
+  background-color: transparent;
+  color: hsl(var(--color-primary));
+  font-weight: 700;
+  transition: background-color 200ms, color 200ms;
+}
+
+.campaign-selector__form-button:hover {
+  background-color: hsl(var(--color-primary));
+  color: hsl(var(--color-background));
+}
+
+.campaign-selector__divider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0.5rem 0;
+}
+
+.campaign-selector__divider-line {
+  flex-grow: 1;
+  border-top: 1px solid hsl(var(--color-surface) / 0.5);
+}
+
+.campaign-selector__divider-label {
+  flex-shrink: 1;
+  margin: 0 1rem;
+  color: hsl(var(--color-text-muted));
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.campaign-selector__support {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 2rem;
+  color: hsl(var(--color-text-muted));
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  transition: color 200ms;
+}
+
+.campaign-selector__support:hover {
+  color: hsl(var(--color-accent));
+}
+
+@media (min-width: 640px) {
+  .campaign-selector__row {
+    flex-direction: row;
+    align-items: center;
+  }
+}

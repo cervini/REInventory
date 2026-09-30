@@ -1,0 +1,102 @@
+.whats-new-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background-color: rgb(0 0 0 / 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.whats-new-modal__dialog {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 32rem;
+  max-height: 80vh;
+  padding: 1.5rem;
+  border: 1px solid hsl(var(--color-accent) / 0.2);
+  border-radius: 0.5rem;
+  background-image: linear-gradient(to bottom, hsl(var(--color-surface)), hsl(var(--color-background)));
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+.whats-new-modal__title {
+  margin-bottom: 1rem;
+  color: hsl(var(--color-accent));
+  font-family: Cinzel, serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 2rem;
+  text-align: center;
+}
+
+.whats-new-modal__body {
+  flex-grow: 1;
+  overflow: auto;
+  padding-right: 0.5rem;
+}
+
+.whats-new-modal__content {
+  color: hsl(var(--color-text-base) / 0.9);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.whats-new-modal__content > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem;
+}
+
+.whats-new-modal__heading {
+  padding-top: 0.5rem;
+  color: hsl(var(--color-accent));
+  font-family: Cinzel, serif;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+}
+
+.whats-new-modal__heading--upcoming {
+  padding-top: 0.25rem;
+  color: hsl(var(--color-primary));
+}
+
+.whats-new-modal__tip {
+  padding-left: 0.75rem;
+  border-left: 2px solid hsl(var(--color-accent) / 0.4);
+  color: hsl(var(--color-text-base) / 0.7);
+  font-size: 0.75rem;
+  font-style: italic;
+  line-height: 1rem;
+}
+
+.whats-new-modal__divider {
+  margin: 1rem 0;
+  border: 0;
+  border-top: 1px solid hsl(var(--color-accent) / 0.1);
+}
+
+.whats-new-modal__outlook {
+  color: hsl(var(--color-text-base) / 0.8);
+}
+
+.whats-new-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 1.5rem;
+}
+
+.whats-new-modal__close {
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  background-color: hsl(var(--color-primary));
+  color: hsl(var(--color-text-base));
+  font-weight: 700;
+  transition: background-color 200ms, color 200ms;
+}
+
+.whats-new-modal__close:hover {
+  background-color: hsl(var(--color-accent));
+  color: hsl(var(--color-background));
+}

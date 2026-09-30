@@ -1,0 +1,135 @@
+.profile-settings {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgb(0 0 0 / 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.profile-settings__dialog {
+  width: 100%;
+  max-width: 24rem;
+  padding: 1.5rem;
+  border: 1px solid hsl(var(--color-accent) / 0.2);
+  border-radius: 0.5rem;
+  background-image: linear-gradient(to bottom, hsl(var(--color-surface)), hsl(var(--color-background)));
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+.profile-settings__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.profile-settings__title {
+  color: hsl(var(--color-accent));
+  font-family: Cinzel, serif;
+  font-size: 1.5rem;
+  line-height: 2rem;
+}
+
+.profile-settings__close {
+  padding: 0.25rem;
+  border-radius: 9999px;
+  color: hsl(var(--color-text-muted));
+  transition: background-color 200ms, color 200ms;
+}
+
+.profile-settings__close:hover {
+  background-color: hsl(var(--color-surface));
+  color: hsl(var(--color-text-base));
+}
+
+.profile-settings__close-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.profile-settings__form > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem;
+}
+
+.profile-settings__label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: hsl(var(--color-text-muted));
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+}
+
+.profile-settings__input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid hsl(var(--color-surface) / 0.5);
+  border-radius: 0.375rem;
+  background-color: hsl(var(--color-background));
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-settings__input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--color-accent));
+}
+
+.profile-settings__error {
+  color: hsl(var(--color-destructive));
+  font-size: 0.875rem;
+  font-style: italic;
+  line-height: 1.25rem;
+}
+
+.profile-settings__actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 1rem;
+}
+
+.profile-settings__actions > :not([hidden]) ~ :not([hidden]) {
+  margin-left: 1rem;
+}
+
+.profile-settings__button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  color: hsl(var(--color-text-base));
+  font-weight: 700;
+  transition: background-color 200ms, color 200ms;
+}
+
+.profile-settings__button--cancel {
+  background-color: hsl(var(--color-surface));
+}
+
+.profile-settings__button--cancel:hover {
+  background-color: hsl(var(--color-surface) / 0.8);
+}
+
+.profile-settings__button--save {
+  background-color: hsl(var(--color-primary));
+}
+
+.profile-settings__button--save:hover {
+  background-color: hsl(var(--color-accent));
+  color: hsl(var(--color-background));
+}
+
+.profile-settings__danger {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid hsl(var(--color-destructive) / 0.2);
+}
+
+.profile-settings__button--delete {
+  width: 100%;
+  background-color: hsl(var(--color-destructive) / 0.8);
+}
+
+.profile-settings__button--delete:hover {
+  background-color: hsl(var(--color-destructive));
+}

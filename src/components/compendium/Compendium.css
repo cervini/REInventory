@@ -1,0 +1,222 @@
+.compendium {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.compendium__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.compendium__title {
+  color: hsl(var(--color-accent));
+  font-family: Cinzel, serif;
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+}
+
+.compendium__back {
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  background-color: hsl(var(--color-surface));
+  color: hsl(var(--color-text-base));
+  font-weight: 700;
+  transition: background-color 150ms;
+}
+
+.compendium__back:hover,
+.compendium__filter-toggle:hover {
+  background-color: hsl(var(--color-surface) / 0.8);
+}
+
+.compendium__tabs {
+  display: flex;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid hsl(var(--color-surface));
+}
+
+.compendium__tab {
+  padding: 0.5rem 1rem;
+  color: hsl(var(--color-text-muted));
+  font-weight: 700;
+}
+
+.compendium__tab--active {
+  border-bottom: 2px solid hsl(var(--color-accent));
+  color: hsl(var(--color-accent));
+}
+
+.compendium__tools {
+  display: flex;
+  flex-grow: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid hsl(var(--color-surface));
+}
+
+.compendium__filter-toggle {
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  background-color: hsl(var(--color-surface));
+  color: hsl(var(--color-text-base));
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+}
+
+.compendium__filter-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.compendium__add {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid hsl(var(--color-primary));
+  border-radius: 0.25rem;
+  background-color: transparent;
+  color: hsl(var(--color-primary));
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+}
+
+.compendium__add:hover {
+  background-color: hsl(var(--color-primary));
+  color: hsl(var(--color-background));
+}
+
+.compendium__filters {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid hsl(var(--color-surface) / 0.5);
+  border-radius: 0.5rem;
+  background-color: hsl(var(--color-surface) / 0.5);
+}
+
+.compendium__filters > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem;
+}
+
+.compendium__search {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid hsl(var(--color-surface) / 0.5);
+  border-radius: 0.375rem;
+  background-color: hsl(var(--color-background));
+}
+
+.compendium__search:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--color-accent));
+}
+
+.compendium__filter-groups > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.5rem;
+}
+
+.compendium__filter-label {
+  margin-right: 0.5rem;
+  color: hsl(var(--color-text-muted));
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+}
+
+.compendium__chip {
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  background-color: hsl(var(--color-surface));
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.compendium__chip--option {
+  margin-left: 0.25rem;
+}
+
+.compendium__chip--active {
+  background-color: hsl(var(--color-accent));
+  color: hsl(var(--color-background));
+}
+
+.compendium__results {
+  flex-grow: 1;
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid hsl(var(--color-surface) / 0.5);
+  border-radius: 0.5rem;
+  background-color: hsl(var(--color-background) / 0.5);
+}
+
+.compendium__empty {
+  color: hsl(var(--color-text-muted));
+  font-style: italic;
+  text-align: center;
+}
+
+.compendium__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.compendium__item {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.75rem;
+  border: 1px solid hsl(var(--color-surface) / 0.5);
+  border-radius: 0.5rem;
+  color: hsl(var(--color-text-base));
+}
+
+.compendium__item-details {
+  min-width: 0;
+}
+
+.compendium__item-name {
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compendium__item-meta {
+  color: hsl(var(--color-text-muted));
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.compendium__delete {
+  align-self: flex-end;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  background-color: hsl(var(--color-destructive) / 0.5);
+  color: hsl(var(--color-text-base));
+  font-size: 0.75rem;
+  line-height: 1rem;
+  transition: background-color 150ms;
+}
+
+.compendium__delete:hover {
+  background-color: hsl(var(--color-destructive));
+}
+
+@media (min-width: 768px) {
+  .compendium__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .compendium__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

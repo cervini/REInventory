@@ -179,3 +179,5 @@ uploadCompendium.js
 serviceAccountKey.json
 
 firebase-seeder
+
+/package-lock.json

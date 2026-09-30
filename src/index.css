@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&family=Lato:wght@400;700&display=swap');
+@import '@unocss/reset/tailwind.css';
 
 :root {
   --color-background: 25 10% 12%;   /* Very Dark, Warm Brown/Gray */
@@ -29,24 +30,104 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   
-  background-color: theme('colors.background');
-  color: theme('colors.text-base');
+  background-color: hsl(var(--color-background));
+  color: hsl(var(--color-text-base));
 }
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Hide arrows in Chrome, Safari, Edge, Opera */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
 
-@layer base {
-  /* Hide arrows in Chrome, Safari, Edge, Opera */
-  input[type=number]::-webkit-inner-spin-button, 
-  input[type=number]::-webkit-outer-spin-button { 
-    -webkit-appearance: none; 
-    margin: 0; 
-  }
+/* Hide arrows in Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+}
 
-  /* Hide arrows in Firefox */
-  input[type=number] {
-    -moz-appearance: textfield;
-  }
+.item-type--weapon { background-color: #7f1d1d; }
+.item-type--armor { background-color: #075985; }
+.item-type--potion { background-color: #115e59; }
+.item-type--magic { background-color: #581c87; }
+.item-type--treasure { background-color: #b45309; }
+.item-type--gear { background-color: #365314; }
+.item-type--ammunition { background-color: #713f12; }
+.item-type--tool { background-color: #312e81; }
+.item-type--other { background-color: #44403c; }
+
+.item-tooltip {
+  max-width: 20rem;
+  color: hsl(var(--color-text-base));
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  text-align: left;
+}
+
+.item-tooltip__title {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.5rem;
+}
+
+.item-tooltip__rarity--common,
+.item-tooltip__attunement,
+.item-tooltip__details {
+  color: hsl(var(--color-text-muted));
+}
+
+.item-tooltip__rarity--uncommon { color: #4ade80; }
+.item-tooltip__rarity--rare { color: #60a5fa; }
+.item-tooltip__rarity--very-rare { color: #c084fc; }
+.item-tooltip__rarity--legendary { color: #fb923c; }
+.item-tooltip__rarity--artifact { color: #ef4444; }
+
+.item-tooltip__attunement,
+.item-tooltip__details,
+.item-tooltip__magic-hidden {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.item-tooltip__attunement,
+.item-tooltip__description,
+.item-tooltip__magic-hidden {
+  font-style: italic;
+}
+
+.item-tooltip__divider {
+  margin: 0.5rem 0;
+  border-color: hsl(var(--color-surface) / 0.5);
+}
+
+.item-tooltip__divider--magic {
+  border-color: hsl(var(--color-accent) / 0.2);
+}
+
+.item-tooltip__stats,
+.item-tooltip__stat,
+.item-tooltip__description {
+  margin-top: 0.5rem;
+  color: hsl(var(--color-text-base) / 0.9);
+}
+
+.item-tooltip__stats > * + * {
+  margin-top: 0.25rem;
+}
+
+.item-tooltip__description,
+.item-tooltip__magic-text {
+  white-space: pre-wrap;
+}
+
+.item-tooltip__magic {
+  color: hsl(var(--color-accent) / 0.9);
+}
+
+.item-tooltip__magic-title {
+  font-weight: 700;
+}
+
+.item-tooltip__magic-hidden {
+  color: hsl(var(--color-accent) / 0.7);
 }

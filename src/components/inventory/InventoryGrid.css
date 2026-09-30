@@ -1,0 +1,559 @@
+.inventory-grid__container-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: fit-content;
+  height: fit-content;
+  padding: 1rem;
+  border: 1px solid hsl(var(--color-accent) / 0.2);
+  border-radius: 0.5rem;
+  background-color: hsl(var(--color-surface) / 0.9);
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  backdrop-filter: blur(12px);
+}
+
+.inventory-grid__container-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  margin-bottom: 0.5rem;
+  user-select: none;
+}
+
+.inventory-grid__container-card-handle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  cursor: move;
+  touch-action: none;
+}
+
+.inventory-grid__container-card-grip {
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  color: hsl(var(--color-text-muted));
+  transition: color 150ms;
+}
+
+.inventory-grid__container-card-grip:hover {
+  color: hsl(var(--color-text-base));
+}
+
+.inventory-grid__container-card-grip-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.inventory-grid__container-card-name {
+  color: hsl(var(--color-text-muted));
+  font-weight: 700;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.inventory-grid__container-card-grid {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.inventory-grid__player-inventory {
+  overflow: hidden;
+}
+
+.inventory-grid__player-inventory--regular {
+  border: 1px solid hsl(var(--color-accent) / 0.2);
+  border-radius: 0.5rem;
+  background-color: hsl(var(--color-surface));
+  box-shadow: 0 10px 15px -3px hsl(var(--color-accent) / 0.1), 0 4px 6px -4px hsl(var(--color-accent) / 0.1);
+}
+
+.inventory-grid__player-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem;
+  border-bottom: 1px solid hsl(var(--color-surface) / 0.5);
+  background-color: hsl(var(--color-surface) / 0.8);
+  text-align: left;
+}
+
+.inventory-grid__player-name {
+  overflow: hidden;
+  color: hsl(var(--color-accent));
+  font-family: Cinzel, serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inventory-grid__player-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.inventory-grid__player-actions > * + * {
+  margin-left: 0.5rem;
+}
+
+.inventory-grid__player-action {
+  padding: 0.5rem;
+  border-radius: 9999px;
+  transition: background-color 150ms;
+}
+
+.inventory-grid__player-action:hover {
+  background-color: hsl(var(--color-background));
+}
+
+.inventory-grid__player-action-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: hsl(var(--color-text-muted));
+}
+
+.inventory-grid__player-action-icon--small {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.inventory-grid__equipped {
+  max-height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  transition: max-height 300ms ease-in-out;
+}
+
+.inventory-grid__equipped--visible {
+  max-height: 24rem;
+  visibility: visible;
+}
+
+.inventory-grid__equipped-content {
+  padding: 0.5rem;
+  border-bottom: 1px solid hsl(var(--color-surface) / 0.5);
+  background-color: hsl(var(--color-background) / 0.5);
+}
+
+.inventory-grid__equipped-title,
+.inventory-grid__floor-title {
+  color: hsl(var(--color-text-muted));
+  font-family: Cinzel, serif;
+  font-weight: 700;
+}
+
+.inventory-grid__equipped-title {
+  padding: 0 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.inventory-grid__tray {
+  padding: 0.5rem;
+  border: 1px solid hsl(var(--color-accent) / 0.1);
+  border-radius: 0.5rem;
+  background-color: hsl(var(--color-background) / 0.5);
+  box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+}
+
+.inventory-grid__tray--loot {
+  border-color: rgb(113 63 18 / 0.3);
+  background-color: rgb(0 0 0 / 0.2);
+}
+
+.inventory-grid__player-content {
+  background-color: hsl(var(--color-background) / 0.5);
+}
+
+.inventory-grid__player-sections {
+  padding: 0.5rem;
+}
+
+.inventory-grid__player-sections > * + * {
+  margin-top: 1rem;
+}
+
+.inventory-grid__canvas {
+  position: relative;
+  width: 100%;
+  min-height: 800px;
+  overflow: hidden;
+  border: 1px dashed hsl(var(--color-accent) / 0.2);
+  border-radius: 0.5rem;
+  background-color: rgb(0 0 0 / 0.1);
+}
+
+.inventory-grid__floor {
+  margin-top: 0.5rem;
+}
+
+.inventory-grid__floor-title {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+}
+
+.inventory-grid__player-sections > * + .inventory-grid__floor {
+  margin-top: 1rem;
+}
+
+.inventory-grid__empty {
+  margin-top: 4rem;
+  padding: 1rem;
+  color: hsl(var(--color-text-muted));
+  text-align: center;
+}
+
+.inventory-grid__empty-title {
+  color: hsl(var(--color-text-base));
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 2rem;
+}
+
+.inventory-grid__empty-description {
+  margin-top: 0.5rem;
+}
+
+.inventory-grid__restore-button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  background-color: hsl(var(--color-primary));
+  color: hsl(var(--color-text-base));
+  font-weight: 700;
+  transition: background-color 150ms, color 150ms;
+}
+
+.inventory-grid__restore-button:hover {
+  background-color: hsl(var(--color-accent));
+  color: hsl(var(--color-background));
+}
+
+.inventory-grid__restore-button:disabled {
+  opacity: 0.5;
+}
+
+.inventory-grid {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  align-items: center;
+  width: 100%;
+}
+
+.inventory-grid__main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+}
+
+.inventory-grid__campaign-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  max-width: 80rem;
+  margin: 0 auto 1rem;
+  padding: 1rem 1rem 0;
+}
+
+.inventory-grid__campaign-button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  background-color: hsl(var(--color-surface));
+  color: hsl(var(--color-text-base));
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  transition: background-color 150ms;
+}
+
+.inventory-grid__campaign-button:hover {
+  background-color: hsl(var(--color-surface) / 0.8);
+}
+
+.inventory-grid__sections {
+  flex-grow: 1;
+  width: 100%;
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 1rem 1rem 6rem;
+}
+
+.inventory-grid__sections > * + * {
+  margin-top: 2rem;
+}
+
+.inventory-grid__floating-actions {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 10;
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+}
+
+.inventory-grid__floating-button {
+  padding: 0.75rem;
+  border: 1px solid hsl(var(--color-primary) / 0.5);
+  border-radius: 9999px;
+  background-color: hsl(var(--color-surface) / 0.8);
+  color: hsl(var(--color-primary));
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  backdrop-filter: blur(4px);
+  transition: all 150ms;
+}
+
+.inventory-grid__floating-button:hover {
+  background-color: hsl(var(--color-primary));
+  color: hsl(var(--color-background));
+}
+
+.inventory-grid__floating-button--merchant {
+  border-color: rgb(217 119 6 / 0.5);
+  color: rgb(245 158 11);
+}
+
+.inventory-grid__floating-button--merchant:hover {
+  background-color: rgb(217 119 6);
+  color: white;
+}
+
+.inventory-grid__floating-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.inventory-grid__drag-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border-radius: 0.5rem;
+  color: hsl(var(--color-text-base));
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1rem;
+  text-align: center;
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  transform: scale(1.05);
+}
+
+.inventory-grid__drag-quantity {
+  position: absolute;
+  right: 0.25rem;
+  bottom: 0;
+  font-size: 1.125rem;
+  font-weight: 900;
+  line-height: 1.75rem;
+}
+
+.inventory-grid__loot,
+.inventory-grid__shop {
+  overflow: hidden;
+  border: 4px solid rgb(113 63 18 / 0.3);
+  border-radius: 0.75rem;
+  background-color: rgb(0 0 0 / 0.2);
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+}
+
+.inventory-grid__loot {
+  margin-bottom: 2rem;
+  transition: all 300ms;
+}
+
+.inventory-grid__loot-header,
+.inventory-grid__shop-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+}
+
+.inventory-grid__loot-header {
+  border-bottom: 1px solid rgb(113 63 18 / 0.5);
+  background-color: rgb(113 63 18 / 0.8);
+  user-select: none;
+}
+
+.inventory-grid__loot-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.inventory-grid__loot-title {
+  color: rgb(254 243 199);
+  font-family: Cinzel, serif;
+  font-size: 1.5rem;
+  letter-spacing: 0.1em;
+  line-height: 2rem;
+  filter: drop-shadow(0 4px 3px rgb(0 0 0 / 0.07));
+}
+
+.inventory-grid__loot-title--input {
+  width: 100%;
+  max-width: 24rem;
+  border: 0;
+  background-color: transparent;
+  outline: none;
+}
+
+.inventory-grid__loot-title--input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.inventory-grid__loot-title--input::placeholder {
+  color: rgb(254 243 199 / 0.5);
+}
+
+.inventory-grid__loot-status {
+  display: none;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid rgb(239 68 68);
+  border-radius: 9999px;
+  background-color: rgb(127 29 29 / 0.5);
+  color: rgb(254 202 202);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.inventory-grid__loot-status--visible {
+  border-color: rgb(34 197 94);
+  background-color: rgb(20 83 45 / 0.5);
+  color: rgb(187 247 208);
+}
+
+.inventory-grid__loot-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.inventory-grid__loot-action {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  color: rgb(253 230 138);
+  transition: background-color 150ms, color 150ms;
+}
+
+.inventory-grid__loot-action:hover {
+  background-color: rgb(133 77 14 / 0.5);
+  color: white;
+}
+
+.inventory-grid__loot-action-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.inventory-grid__loot-chevron {
+  transition: transform 300ms;
+}
+
+.inventory-grid__loot-chevron--expanded {
+  transform: rotate(180deg);
+}
+
+.inventory-grid__loot-content {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: all 300ms ease-in-out;
+}
+
+.inventory-grid__loot-content--expanded {
+  max-height: 800px;
+  opacity: 1;
+}
+
+.inventory-grid__shops {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.inventory-grid__shop {
+  border-color: rgb(51 65 85 / 0.5);
+}
+
+.inventory-grid__shop-header {
+  border-bottom: 1px solid rgb(71 85 105 / 0.5);
+  background-color: rgb(30 41 59 / 0.9);
+  text-align: center;
+}
+
+.inventory-grid__shop-title {
+  color: rgb(226 232 240);
+  font-family: Cinzel, serif;
+  font-size: 1.25rem;
+  letter-spacing: 0.1em;
+  line-height: 1.75rem;
+  filter: drop-shadow(0 4px 3px rgb(0 0 0 / 0.07));
+}
+
+.inventory-grid__shop-delete {
+  padding: 0.375rem;
+  border-radius: 0.25rem;
+  color: rgb(148 163 184);
+  transition: background-color 150ms, color 150ms;
+}
+
+.inventory-grid__shop-delete:hover {
+  background-color: rgb(51 65 85);
+  color: rgb(248 113 113);
+}
+
+.inventory-grid__shop-delete-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .inventory-grid__loot-status {
+    display: inline-block;
+  }
+
+  .inventory-grid__floating-actions {
+    right: 2rem;
+    bottom: 2rem;
+    flex-direction: column;
+  }
+
+  .inventory-grid__floating-button {
+    padding: 1rem;
+  }
+
+  .inventory-grid__floating-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .inventory-grid__drag-preview {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .inventory-grid__shops {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -7,14 +7,14 @@ import { auth, db } from './firebase';
 import './App.css';
 
 // Component imports
-import InventoryGrid from './components/InventoryGrid';
-import Auth from './components/Auth';
-import CampaignSelector from './components/CampaignSelector';
-import ProfileSettings from './components/ProfileSettings';
-import CookieBanner from './components/CookieBanner';
-import PrivacyPolicy from './components/PrivacyPolicy';
-import CookiePolicy from './components/CookiePolicy';
-import Compendium from './components/Compendium';
+import InventoryGrid from './components/inventory/InventoryGrid';
+import Auth from './components/auth/Auth';
+import CampaignSelector from './components/campaign/CampaignSelector';
+import ProfileSettings from './components/auth/ProfileSettings';
+import CookieBanner from './components/cookies/CookieBanner';
+import PrivacyPolicy from './components/policies/PrivacyPolicy';
+import CookiePolicy from './components/policies/CookiePolicy';
+import Compendium from './components/compendium/Compendium';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -25,7 +25,6 @@ export default function App() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isCodeVisible, setIsCodeVisible] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-  const [isTrading, setIsTrading] = useState(false);
   const [currentPage, setCurrentPage] = useState('main'); // 'main', 'privacy', 'cookies', 'compendium'
   const [hasCookieConsent, setHasCookieConsent] = useState(() => !!localStorage.getItem('cookieConsent'));
   
@@ -128,11 +127,11 @@ export default function App() {
     // If we have a user, but they haven't consented, show the consent message.
     if (!hasCookieConsent) {
       return (
-        <div className="text-center text-text-muted mt-16 p-4">
-          <h2 className="text-2xl font-bold text-text-base">
+        <div className="app__consent">
+          <h2 className="app__consent-title">
             Almost there!
           </h2>
-          <p className="mt-2">
+          <p className="app__consent-description">
             To access your campaigns and inventories, please accept our cookie policy by clicking the "Okay, I understand" button in the banner at the bottom of the screen.
           </p>
         </div>
@@ -149,8 +148,6 @@ export default function App() {
         campaignId={campaignId} 
         user={user} 
         userProfile={userProfile}
-        isTrading={isTrading}
-        setIsTrading={setIsTrading}
       />;
     } else {
       // having no current campaingId shows the CamapaignSelector component
@@ -160,7 +157,7 @@ export default function App() {
   };
 
   return (
-    <main className="text-text-base h-screen flex flex-col items-center p-4 font-sans">
+    <main className="app">
       
       {/* Global components (toasts, tooltips) */}
       <Toaster 
@@ -190,43 +187,36 @@ export default function App() {
         />
       )}
 
-      <div className="w-full max-w-4xl flex flex-col flex-grow relative overflow-hidden">
+       <div className="app__content">
         {/* The header is now only visible on the main page */}
         {currentPage === 'main' && (
-           <div className="flex justify-between items-center w-full mb-4">
+         <div className="app__header">
               
               {/* Left Slot */}
-              <div className="flex-1 flex justify-start items-center space-x-2">
+              <div className="app__header-left">
                 {campaignId && (
-                  <button onClick={handleBackToCampaigns} className="p-2 rounded-full hover:bg-surface transition-colors duration-200" aria-label="Back to campaigns">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <button onClick={handleBackToCampaigns} className="app__icon-button" aria-label="Back to campaigns">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="app__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
                   </button>
                 )}
                 {campaignId && (
-                  <button onClick={() => setIsTrading(true)} className="p-2 rounded-full hover:bg-surface transition-colors" aria-label="Start Trade">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                    </svg>
-                  </button>
-                )}
-                {campaignId && (
-                  <div className="relative">
+                  <div className="app__code-wrapper">
                     <button
-                      className="p-2 rounded-full hover:bg-surface transition-colors duration-200"
+                      className="app__icon-button"
                       onClick={() => setIsCodeVisible(true)}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.368a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" /></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="app__icon app__icon--small" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.368a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" /></svg>
                     </button>
                     {isCodeVisible && (
                       <div
-                        className="absolute left-0 mt-2 w-auto bg-gradient-to-b from-surface to-background rounded-md shadow-lg p-2 z-50 border border-accent/20"
+                        className="app__code-popup"
                         onMouseLeave={handleCodeMouseLeave}
                       >
-                        <div className="flex items-center space-x-4">
-                          <span className="text-text-muted font-mono text-sm whitespace-nowrap">Code: <span className="font-bold text-text-base">{campaignId}</span></span>
-                          <button onClick={handleCopy} className="bg-primary hover:bg-accent hover:text-background text-text-base text-xs font-bold py-1 px-3 rounded transition-colors duration-200">{isCopied ? 'Copied!' : 'Copy'}</button>
+                        <div className="app__code-row">
+                          <span className="app__code-label">Code: <span className="app__code-value">{campaignId}</span></span>
+                          <button onClick={handleCopy} className="app__copy">{isCopied ? 'Copied!' : 'Copy'}</button>
                         </div>
                       </div>
                     )}
@@ -236,32 +226,38 @@ export default function App() {
 
               {/* Center Slot - Title is only shown on the auth pages */}
               {!campaignId && (
-                <div className="text-center min-w-0 px-2">
-                  <h1 className="text-2xl sm:text-4xl font-bold font-fantasy truncate"><span className="text-accent">RE</span>Inventory</h1>
+                <div className="app__brand-wrapper">
+                  <h1 className="app__brand"><span className="app__brand-accent">RE</span>Inventory</h1>
                 </div>
               )}
               {/* Right Slot */}
-              <div className="flex-1 flex justify-end">
+              <div className="app__header-right">
                 {user && (
-                  <div className="relative">
-                    <button onClick={() => setIsUserMenuOpen(prev => !prev)} className="p-2 rounded-full hover:bg-surface transition-colors duration-200">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                  <div className="app__profile-wrapper">
+                    <button onClick={() => setIsUserMenuOpen(prev => !prev)} className="app__icon-button">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="app__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                     </button>
                     {isUserMenuOpen && (
-                      <div className="absolute right-0 mt-2 w-48 bg-gradient-to-b from-surface to-background rounded-md shadow-lg py-1 z-50 border border-accent/20" onMouseLeave={() => setIsUserMenuOpen(false)}>
-                        <div className="px-4 py-2 text-sm text-text-muted border-b border-surface/50">Signed in as<br/><strong className="font-medium text-text-base">{userProfile?.displayName || user.email}</strong></div>
-                        <button onClick={() => { setShowSettings(true); setIsUserMenuOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-text-base hover:bg-accent hover:text-background transition-colors duration-200">Profile</button>
-                        <button onClick={() => { auth.signOut(); setIsUserMenuOpen(false); }} className="block w-full text-left px-4 py-2 text-sm text-text-base hover:bg-accent hover:text-background transition-colors duration-200">Sign Out</button>
+                      <div className="app__menu" onMouseLeave={() => setIsUserMenuOpen(false)}>
+                        <div className="app__menu-account">Signed in as<br/><strong className="app__menu-name">{userProfile?.displayName || user.email}</strong></div>
+                        <button onClick={() => { setShowSettings(true); setIsUserMenuOpen(false); }} className="app__menu-item">Profile</button>
+                        <button onClick={() => { auth.signOut(); setIsUserMenuOpen(false); }} className="app__menu-item">Sign Out</button>
                         <button 
                           onClick={() => { setCurrentPage('compendium'); setIsUserMenuOpen(false); }} 
-                          className="block w-full text-left px-4 py-2 text-sm text-text-base hover:bg-accent hover:text-background transition-colors duration-200"
+                          className="app__menu-item"
                         >
                           Item Compendium
                         </button>
-                        <div className="border-t border-surface/50 my-1" />
+                        <div className="app__menu-divider" />
+                        <button
+                          onClick={() => { setCurrentPage('privacy'); setIsUserMenuOpen(false); }}
+                          className="app__menu-item"
+                        >
+                          Privacy Policy
+                        </button>
                         <button 
                           onClick={() => { setCurrentPage('cookies'); setIsUserMenuOpen(false); }} 
-                          className="block w-full text-left px-4 py-2 text-sm text-text-base hover:bg-accent hover:text-background transition-colors duration-200"
+                          className="app__menu-item"
                         >
                           Cookie Policy
                         </button>
@@ -274,9 +270,9 @@ export default function App() {
         )}
 
         {/* Dinamically rendered page content */}
-        <div className="flex-grow overflow-y-auto">
+        <div className="app__body">
             {renderContent()}
-            {!hasCookieConsent && <div className="h-24 flex-shrink-0" />}
+          {!hasCookieConsent && <div className="app__consent-spacer" />}
         </div>
       </div>
       

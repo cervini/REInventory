@@ -1,0 +1,100 @@
+.campaign-settings {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgb(0 0 0 / 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.campaign-settings__dialog {
+  width: 100%;
+  max-width: 28rem;
+  padding: 1.5rem;
+  border: 1px solid hsl(var(--color-accent) / 0.2);
+  border-radius: 0.5rem;
+  background-image: linear-gradient(to bottom, hsl(var(--color-surface)), hsl(var(--color-background)));
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+.campaign-settings__title {
+  margin-bottom: 1rem;
+  color: hsl(var(--color-accent));
+  font-family: Cinzel, serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 2rem;
+}
+
+.campaign-settings__form > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem;
+}
+
+.campaign-settings__label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: hsl(var(--color-text-muted));
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+}
+
+.campaign-settings__label--small {
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.campaign-settings__input {
+  padding: 0.5rem;
+  border: 1px solid hsl(var(--color-surface) / 0.5);
+  border-radius: 0.375rem;
+  background-color: hsl(var(--color-background));
+}
+
+.campaign-settings__input--name {
+  width: 100%;
+}
+
+.campaign-settings__input--dimension {
+  width: 5rem;
+}
+
+.campaign-settings__dimensions {
+  display: flex;
+  gap: 1rem;
+}
+
+.campaign-settings__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding-top: 1rem;
+}
+
+.campaign-settings__button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  color: hsl(var(--color-text-base));
+  font-weight: 700;
+  transition: background-color 150ms, color 150ms;
+}
+
+.campaign-settings__button--cancel {
+  background-color: hsl(var(--color-surface));
+}
+
+.campaign-settings__button--cancel:hover {
+  background-color: hsl(var(--color-surface) / 0.8);
+}
+
+.campaign-settings__button--save {
+  background-color: hsl(var(--color-primary));
+}
+
+.campaign-settings__button--save:hover {
+  background-color: hsl(var(--color-accent));
+  color: hsl(var(--color-background));
+}

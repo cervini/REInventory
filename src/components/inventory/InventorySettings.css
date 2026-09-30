@@ -1,0 +1,282 @@
+.inventory-settings {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgb(0 0 0 / 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.inventory-settings__dialog {
+  width: 100%;
+  max-width: 42rem;
+  max-height: 90vh;
+  overflow: auto;
+  padding: 1.5rem;
+  border: 1px solid hsl(var(--color-accent) / 0.2);
+  border-radius: 0.5rem;
+  background-image: linear-gradient(to bottom, hsl(var(--color-surface)), hsl(var(--color-background)));
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+.inventory-settings__title {
+  margin-bottom: 1.5rem;
+  color: hsl(var(--color-accent));
+  font-family: Cinzel, serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 2rem;
+  text-align: center;
+}
+
+.inventory-settings__form > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1.5rem;
+}
+
+.inventory-settings__label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: hsl(var(--color-text-muted));
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+}
+
+.inventory-settings__input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid hsl(var(--color-surface) / 0.5);
+  border-radius: 0.375rem;
+  background-color: hsl(var(--color-background));
+}
+
+.inventory-settings__input--calculated:disabled {
+  cursor: not-allowed;
+}
+
+.inventory-settings__row,
+.inventory-settings__weight-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.inventory-settings__weight-row {
+  align-items: flex-end;
+  padding-top: 1rem;
+}
+
+.inventory-settings__weight-row--calculated {
+  opacity: 0.5;
+}
+
+.inventory-settings__half {
+  width: 50%;
+}
+
+.inventory-settings__grow,
+.inventory-settings__container-name-group {
+  flex-grow: 1;
+}
+
+.inventory-settings__weight-stats {
+  padding-top: 1rem;
+  border-top: 1px solid hsl(var(--color-surface) / 0.5);
+}
+
+.inventory-settings__weight-stats > :not([hidden]) ~ :not([hidden]),
+.inventory-settings__container-section > :not([hidden]) ~ :not([hidden]),
+.inventory-settings__container-list > :not([hidden]) ~ :not([hidden]),
+.inventory-settings__container > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem;
+}
+
+.inventory-settings__weight-toggle,
+.inventory-settings__container-header,
+.inventory-settings__container-name-group,
+.inventory-settings__reorder {
+  display: flex;
+  align-items: center;
+}
+
+.inventory-settings__checkbox {
+  width: 1rem;
+  height: 1rem;
+  border-color: hsl(var(--color-surface) / 0.5);
+  border-radius: 0.25rem;
+  background-color: hsl(var(--color-background));
+  color: hsl(var(--color-primary));
+}
+
+.inventory-settings__checkbox:focus {
+  outline-color: hsl(var(--color-accent));
+}
+
+.inventory-settings__checkbox-label {
+  margin-left: 0.5rem;
+  color: hsl(var(--color-text-muted));
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+
+.inventory-settings__container-title {
+  color: hsl(var(--color-accent));
+  font-family: Cinzel, serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.75rem;
+}
+
+.inventory-settings__container {
+  position: relative;
+  padding: 1rem;
+  border: 1px solid hsl(var(--color-surface) / 0.5);
+  border-radius: 0.5rem;
+  background-color: hsl(var(--color-background) / 0.5);
+}
+
+.inventory-settings__container-header {
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.inventory-settings__container-name-group {
+  gap: 0.5rem;
+}
+
+.inventory-settings__drag-handle {
+  padding: 0.375rem;
+  border-radius: 0.25rem;
+  color: hsl(var(--color-text-muted));
+  cursor: grab;
+  touch-action: none;
+  transition: background-color 150ms, color 150ms;
+}
+
+.inventory-settings__drag-handle:hover,
+.inventory-settings__reorder-button:hover {
+  background-color: hsl(var(--color-surface) / 0.5);
+  color: hsl(var(--color-text-base));
+}
+
+.inventory-settings__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.inventory-settings__container-name {
+  flex-grow: 1;
+  border-bottom: 1px solid hsl(var(--color-surface) / 0.5);
+  background-color: transparent;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.75rem;
+}
+
+.inventory-settings__container-name:focus {
+  outline: none;
+  border-color: hsl(var(--color-accent));
+}
+
+.inventory-settings__reorder {
+  gap: 0.25rem;
+}
+
+.inventory-settings__reorder-button,
+.inventory-settings__delete-container {
+  padding: 0.375rem;
+  border-radius: 0.25rem;
+  transition: background-color 150ms, color 150ms;
+}
+
+.inventory-settings__reorder-button {
+  color: hsl(var(--color-text-muted));
+}
+
+.inventory-settings__reorder-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.inventory-settings__delete-container {
+  margin-left: 0.5rem;
+  color: hsl(var(--color-destructive) / 0.7);
+}
+
+.inventory-settings__delete-container:hover {
+  background-color: hsl(var(--color-destructive) / 0.1);
+  color: hsl(var(--color-destructive));
+}
+
+.inventory-settings__add-container {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  border: 1px dashed hsl(var(--color-surface));
+  border-radius: 0.25rem;
+  background-color: hsl(var(--color-surface) / 0.5);
+  color: hsl(var(--color-text-base));
+  font-weight: 700;
+  transition: background-color 150ms;
+}
+
+.inventory-settings__add-container:hover {
+  background-color: hsl(var(--color-surface) / 0.8);
+}
+
+.inventory-settings__danger {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid hsl(var(--color-destructive) / 0.2);
+}
+
+.inventory-settings__danger-description {
+  margin-bottom: 1rem;
+  color: hsl(var(--color-text-muted));
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.inventory-settings__leave,
+.inventory-settings__button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  color: hsl(var(--color-text-base));
+  font-weight: 700;
+  transition: background-color 150ms, color 150ms;
+}
+
+.inventory-settings__leave {
+  width: 100%;
+  background-color: hsl(var(--color-destructive) / 0.8);
+  transition-duration: 200ms;
+}
+
+.inventory-settings__leave:hover {
+  background-color: hsl(var(--color-destructive));
+}
+
+.inventory-settings__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding-top: 1rem;
+}
+
+.inventory-settings__button--cancel {
+  background-color: hsl(var(--color-surface));
+}
+
+.inventory-settings__button--cancel:hover {
+  background-color: hsl(var(--color-surface) / 0.8);
+}
+
+.inventory-settings__button--save {
+  background-color: hsl(var(--color-primary));
+}
+
+.inventory-settings__button--save:hover {
+  background-color: hsl(var(--color-accent));
+  color: hsl(var(--color-background));
+}

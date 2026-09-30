@@ -1,0 +1,82 @@
+.policy-page {
+  width: 100%;
+  max-width: 42rem;
+  margin-inline: auto;
+  padding: 2rem;
+  border: 1px solid hsl(var(--color-accent) / 0.2);
+  border-radius: 0.5rem;
+  background-color: hsl(var(--color-surface));
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  color: hsl(var(--color-text-muted));
+}
+
+.policy-page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.policy-page__back {
+  padding: 0.5rem;
+  border-radius: 9999px;
+  transition: background-color 200ms;
+}
+
+.policy-page__back:hover {
+  background-color: hsl(var(--color-background));
+}
+
+.policy-page__back-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: hsl(var(--color-text-base));
+}
+
+.policy-page__title {
+  color: hsl(var(--color-accent));
+  font-family: Cinzel, serif;
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+}
+
+.policy-page__spacer {
+  width: 2.5rem;
+}
+
+.policy-page__date {
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.policy-page__content {
+  color: hsl(var(--color-text-base) / 0.9);
+}
+
+.policy-page__content--compact {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.policy-page__content > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem;
+}
+
+.policy-page__content h2 {
+  padding-top: 0.5rem;
+  color: hsl(var(--color-accent));
+  font-family: Cinzel, serif;
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
+
+.policy-page__content ul {
+  padding-left: 1rem;
+  list-style-type: disc;
+  list-style-position: inside;
+}
+
+.policy-page__content li + li {
+  margin-top: 0.25rem;
+}

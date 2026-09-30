@@ -70,7 +70,13 @@ export const useCampaignStore = create((set, get) => ({
 
         // Update top-level inventory data
         newInventories[playerId] = { ...(newInventories[playerId] || {}), ...invData, id: playerId };
-        
+      });
+
+      set({ inventories: newInventories, isLoading: false, containerListeners: currentListeners });
+
+      invSnapshot.forEach(invDoc => {
+        const playerId = invDoc.id;
+
         // Subscribe to container listeners for new players
         if (!currentListeners[playerId]) {
           const containersColRef = collection(invDoc.ref, 'containers');
@@ -95,8 +101,6 @@ export const useCampaignStore = create((set, get) => ({
           });
         }
       });
-
-      set({ inventories: newInventories, isLoading: false, containerListeners: currentListeners });
     }, (err) => {
       console.error("Error fetching inventories:", err);
       set({ error: 'Failed to fetch inventories.', isLoading: false });

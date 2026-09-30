@@ -1,0 +1,17 @@
+.weight-counter {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 700;
+}
+
+.weight-counter__current {
+  color: hsl(var(--color-text-muted));
+}
+
+.weight-counter__current--over {
+  color: hsl(var(--color-destructive));
+}
+
+.weight-counter__limit {
+  color: hsl(var(--color-text-muted) / 0.7);
+}

@@ -1,0 +1,27 @@
+.spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.spinner__icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: hsl(var(--color-accent));
+  animation: spinner-spin 1s linear infinite;
+}
+
+.spinner__track {
+  opacity: 0.25;
+}
+
+.spinner__fill {
+  opacity: 0.75;
+}
+
+@keyframes spinner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

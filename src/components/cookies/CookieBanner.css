@@ -1,0 +1,61 @@
+.cookie-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  border-top: 1px solid hsl(var(--color-accent) / 0.2);
+  background-color: hsl(var(--color-surface));
+  text-align: center;
+}
+
+.cookie-banner__message {
+  margin-bottom: 0.5rem;
+  color: hsl(var(--color-text-muted));
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.cookie-banner__link {
+  margin-left: 0.25rem;
+  color: hsl(var(--color-accent));
+  font-weight: 700;
+}
+
+.cookie-banner__link:hover {
+  text-decoration: underline;
+}
+
+.cookie-banner__accept {
+  flex-shrink: 0;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  background-color: hsl(var(--color-primary));
+  color: hsl(var(--color-text-base));
+  font-weight: 700;
+  transition: background-color 200ms, color 200ms;
+}
+
+.cookie-banner__accept:hover {
+  background-color: hsl(var(--color-accent));
+  color: hsl(var(--color-background));
+}
+
+@media (min-width: 640px) {
+  .cookie-banner {
+    flex-direction: row;
+  }
+
+  .cookie-banner__message {
+    margin-bottom: 0;
+  }
+
+  .cookie-banner__accept {
+    margin-left: 1rem;
+  }
+}
