@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { doc, updateDoc, writeBatch, setDoc, runTransaction, arrayUnion } from "firebase/firestore";
 import { db } from '../../firebase';
@@ -1270,7 +1271,7 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
   };
 
   if (isLoading) {
-    return <Spinner />;
+    return <div className="inventory-grid__loading" role="status"><div aria-hidden="true"><Spinner /></div><p>Loading inventories...</p></div>;
   }
 
   if (!isLoading && Object.keys(inventories).length === 0) {
@@ -1372,16 +1373,16 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
       >
         {/* Main Content Area */}
         <div className="inventory-grid__main">
-          {isDM && (
-            <div className="inventory-grid__campaign-toolbar">
-              <button
-                onClick={() => setShowLayoutSettings(true)}
-                className="inventory-grid__campaign-button"
-              >
-                Manage Campaign
-              </button>
+          <header className="inventory-grid__toolbar" aria-label="Inventory workspace">
+            <div className="inventory-grid__toolbar-heading">
+              <h2 className="inventory-grid__title">Inventory</h2>
+              <p className="inventory-grid__toolbar-context">
+                <span>{isDM ? 'DM view' : 'Your character'}</span>
+                {isDM && <span>{orderedAndVisibleInventories.length} of {Object.keys(playerInventories).length} inventories visible</span>}
+              </p>
             </div>
-          )}
+            {isDM && <button type="button" onClick={() => setShowLayoutSettings(true)} className="inventory-grid__tool" aria-label="Manage campaign" title="Manage campaign"><AdjustmentsHorizontalIcon className="inventory-grid__tool-icon" aria-hidden="true" /></button>}
+          </header>
           <div className="inventory-grid__sections">
 
             {/* --- LOOT PILE SECTION --- */}
@@ -1436,7 +1437,6 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
               />
             ))}
           </div>
-          {/* --- Floating Action Buttons --- */}
           <InventoryActions
             isDM={isDM}
             onOpenCompendium={() => setShowCompendium(true)}

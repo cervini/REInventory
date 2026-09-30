@@ -90,7 +90,6 @@
   border: 1px solid hsl(var(--color-accent) / 0.2);
   border-radius: 0.5rem;
   background-color: hsl(var(--color-surface));
-  box-shadow: 0 10px 15px -3px hsl(var(--color-accent) / 0.1), 0 4px 6px -4px hsl(var(--color-accent) / 0.1);
 }
 
 .inventory-grid__player-header {
@@ -100,37 +99,48 @@
   justify-content: space-between;
   gap: 0.5rem;
   width: 100%;
-  padding: 0.5rem;
-  border-bottom: 1px solid hsl(var(--color-surface) / 0.5);
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid hsl(var(--color-accent) / 0.2);
   background-color: hsl(var(--color-surface) / 0.8);
   text-align: left;
 }
 
 .inventory-grid__player-name {
-  overflow: hidden;
+  min-width: 0;
+  flex: 1 1 12rem;
   color: hsl(var(--color-accent));
   font-family: Cinzel, serif;
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
-  line-height: 1.75rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  letter-spacing: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .inventory-grid__player-actions {
   display: flex;
-  flex-shrink: 0;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
 }
 
-.inventory-grid__player-actions > * + * {
-  margin-left: 0.5rem;
+.inventory-grid__player-actions .wallet__summary {
+  flex-wrap: wrap;
+  align-items: center;
+  max-width: 100%;
+  min-height: 2.75rem;
+  overflow-wrap: anywhere;
 }
 
 .inventory-grid__player-action {
-  padding: 0.5rem;
-  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  border-radius: 0.25rem;
   transition: background-color 150ms;
 }
 
@@ -138,9 +148,22 @@
   background-color: hsl(var(--color-background));
 }
 
+.inventory-grid__player-action:focus-visible {
+  outline: 2px solid hsl(var(--color-accent));
+  outline-offset: 2px;
+}
+
+.inventory-grid__player-action[aria-expanded="true"] {
+  background-color: hsl(var(--color-accent) / 0.12);
+}
+
+.inventory-grid__player-action[aria-expanded="true"] .inventory-grid__player-action-icon {
+  color: hsl(var(--color-accent));
+}
+
 .inventory-grid__player-action-icon {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.25rem;
+  height: 1.25rem;
   color: hsl(var(--color-text-muted));
 }
 
@@ -207,6 +230,7 @@
 
 .inventory-grid__canvas {
   position: relative;
+  isolation: isolate;
   width: 100%;
   min-height: 800px;
   overflow: hidden;
@@ -229,15 +253,16 @@
 }
 
 .inventory-grid__empty {
-  margin-top: 4rem;
-  padding: 1rem;
+  margin: 2rem auto;
+  max-width: 32rem;
+  padding: 1.5rem 1rem;
   color: hsl(var(--color-text-muted));
   text-align: center;
 }
 
 .inventory-grid__empty-title {
   color: hsl(var(--color-text-base));
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
   line-height: 2rem;
 }
@@ -248,10 +273,11 @@
 
 .inventory-grid__restore-button {
   margin-top: 1rem;
-  padding: 0.5rem 1rem;
+  min-height: 2.75rem;
+  padding: 0.625rem 1rem;
   border-radius: 0.25rem;
   background-color: hsl(var(--color-primary));
-  color: hsl(var(--color-text-base));
+  color: hsl(var(--color-background));
   font-weight: 700;
   transition: background-color 150ms, color 150ms;
 }
@@ -263,6 +289,13 @@
 
 .inventory-grid__restore-button:disabled {
   opacity: 0.5;
+}
+
+.inventory-grid__loading {
+  padding: 2rem 1rem;
+  color: hsl(var(--color-text-muted));
+  font-size: 0.875rem;
+  text-align: center;
 }
 
 .inventory-grid {
@@ -280,31 +313,51 @@
   flex-grow: 1;
   width: 100%;
   min-width: 0;
-  min-height: 100vh;
+  min-height: 0;
 }
 
-.inventory-grid__campaign-toolbar {
+.inventory-grid__toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   width: 100%;
   max-width: 80rem;
   margin: 0 auto 1rem;
-  padding: 1rem 1rem 0;
+  padding: 1rem;
+  border-bottom: 1px solid hsl(var(--color-accent) / 0.2);
+  background-color: hsl(var(--color-background) / 0.96);
+  backdrop-filter: blur(12px);
 }
 
-.inventory-grid__campaign-button {
-  padding: 0.5rem 1rem;
-  border-radius: 0.25rem;
-  background-color: hsl(var(--color-surface));
-  color: hsl(var(--color-text-base));
-  font-size: 0.875rem;
+.inventory-grid__toolbar-heading {
+  min-width: 0;
+}
+
+.inventory-grid__title {
+  color: hsl(var(--color-accent));
+  font-family: Cinzel, serif;
+  font-size: 1.25rem;
   font-weight: 700;
-  line-height: 1.25rem;
-  transition: background-color 150ms;
+  line-height: 1.5;
 }
 
-.inventory-grid__campaign-button:hover {
-  background-color: hsl(var(--color-surface) / 0.8);
+.inventory-grid__toolbar-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.25rem;
+  color: hsl(var(--color-text-muted));
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.inventory-grid__toolbar-context span + span {
+  padding-left: 0.75rem;
+  border-left: 1px solid hsl(var(--color-accent) / 0.3);
 }
 
 .inventory-grid__sections {
@@ -312,52 +365,126 @@
   width: 100%;
   max-width: 80rem;
   margin: 0 auto;
-  padding: 1rem 1rem 6rem;
+  padding: 0 1rem 6.5rem;
 }
 
 .inventory-grid__sections > * + * {
   margin-top: 2rem;
 }
 
-.inventory-grid__floating-actions {
-  position: fixed;
-  right: 1rem;
-  bottom: 1rem;
-  z-index: 10;
+.inventory-grid__tools {
   display: flex;
-  flex-direction: row;
+  flex-shrink: 0;
   gap: 0.5rem;
 }
 
-.inventory-grid__floating-button {
-  padding: 0.75rem;
-  border: 1px solid hsl(var(--color-primary) / 0.5);
-  border-radius: 9999px;
-  background-color: hsl(var(--color-surface) / 0.8);
-  color: hsl(var(--color-primary));
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  backdrop-filter: blur(4px);
-  transition: all 150ms;
+.inventory-grid__tools--floating {
+  position: fixed;
+  right: calc(1rem + env(safe-area-inset-right, 0px));
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  z-index: 8;
+  align-items: center;
+  gap: 0.75rem;
 }
 
-.inventory-grid__floating-button:hover {
+.inventory-grid__tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid hsl(var(--color-accent) / 0.3);
+  border-radius: 0.25rem;
+  background-color: hsl(var(--color-surface));
+  color: hsl(var(--color-text-base));
+  transition: background-color 150ms, color 150ms;
+}
+
+.inventory-grid__tool:hover {
+  background-color: hsl(var(--color-accent) / 0.15);
+}
+
+.inventory-grid__tool--primary {
+  border-color: hsl(var(--color-primary));
   background-color: hsl(var(--color-primary));
   color: hsl(var(--color-background));
 }
 
-.inventory-grid__floating-button--merchant {
-  border-color: rgb(217 119 6 / 0.5);
-  color: rgb(245 158 11);
+.inventory-grid__tool--primary:hover {
+  background-color: hsl(var(--color-text-base));
 }
 
-.inventory-grid__floating-button--merchant:hover {
-  background-color: rgb(217 119 6);
-  color: white;
-}
-
-.inventory-grid__floating-icon {
+.inventory-grid__tool-icon {
   width: 1.25rem;
   height: 1.25rem;
+}
+
+.inventory-grid__tools--floating .inventory-grid__tool {
+  width: 3rem;
+  height: 3rem;
+  border-color: hsl(var(--color-accent) / 0.6);
+  border-radius: 50%;
+  background-image: linear-gradient(145deg, hsl(var(--color-surface)), hsl(var(--color-background)));
+  color: hsl(var(--color-accent));
+  box-shadow: inset 0 1px 0 hsl(var(--color-accent) / 0.2), 0 6px 18px rgb(0 0 0 / 0.35);
+  transition: transform 150ms, border-color 150ms, box-shadow 150ms;
+}
+
+.inventory-grid__tools--floating .inventory-grid__tool:hover {
+  transform: translateY(-2px);
+  border-color: hsl(var(--color-accent));
+  box-shadow: inset 0 1px 0 hsl(var(--color-accent) / 0.3), 0 8px 22px rgb(0 0 0 / 0.4);
+}
+
+.inventory-grid__tools--floating .inventory-grid__tool--primary {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-color: hsl(var(--color-accent));
+  background-image: linear-gradient(145deg, hsl(var(--color-accent)), hsl(var(--color-primary)));
+  color: hsl(var(--color-background));
+}
+
+.inventory-grid__tools--floating .inventory-grid__tool-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.inventory-grid__tool:focus-visible,
+.inventory-grid__restore-button:focus-visible {
+  outline: 2px solid hsl(var(--color-accent));
+  outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  .inventory-grid__toolbar {
+    flex-wrap: wrap;
+  }
+
+  .inventory-grid__player-actions {
+    width: 100%;
+  }
+}
+
+@media (min-width: 641px) {
+  .inventory-grid__tools--floating {
+    right: calc(2rem + env(safe-area-inset-right, 0px));
+    bottom: calc(2rem + env(safe-area-inset-bottom, 0px));
+    flex-direction: column;
+  }
+
+  .inventory-grid__sections {
+    padding-bottom: 14rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inventory-grid__tools--floating .inventory-grid__tool {
+    transition: none;
+  }
+
+  .inventory-grid__tools--floating .inventory-grid__tool:hover {
+    transform: none;
+  }
 }
 
 .inventory-grid__drag-preview {
@@ -531,22 +658,6 @@
   .inventory-grid__loot-status {
     display: inline-block;
   }
-
-  .inventory-grid__floating-actions {
-    right: 2rem;
-    bottom: 2rem;
-    flex-direction: column;
-  }
-
-  .inventory-grid__floating-button {
-    padding: 1rem;
-  }
-
-  .inventory-grid__floating-icon {
-    width: 1.5rem;
-    height: 1.5rem;
-  }
-
 }
 
 @media (min-width: 768px) {

@@ -1,8 +1,9 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { deleteDoc, doc, getDoc, getDocs, query, setDoc, where, writeBatch } from 'firebase/firestore';
+import { arrayUnion, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where, writeBatch } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import CampaignSelector from '../components/campaign/CampaignSelector';
+import { useStarterPacks } from '../hooks/useStarterPacks';
 
 jest.mock('../firebase', () => ({ auth: { currentUser: { uid: 'player' } }, db: {} }));
 jest.mock('firebase/firestore', () => ({
@@ -15,7 +16,10 @@ jest.mock('firebase/firestore', () => ({
   getDocs: jest.fn(),
   deleteDoc: jest.fn(),
   writeBatch: jest.fn(),
+  updateDoc: jest.fn(),
+  arrayUnion: jest.fn(),
 }));
+jest.mock('../hooks/useStarterPacks', () => ({ useStarterPacks: jest.fn() }));
 jest.mock('../components/campaign/JoinCampaign', () => ({ campaignId, isDMAddingCharacter, onClose }) => (
   <div role="dialog" aria-label={isDMAddingCharacter ? 'Add character' : 'Join character'}>
     <span>{campaignId}</span>
@@ -44,7 +48,88 @@ beforeEach(() => {
   getDoc.mockResolvedValue({ exists: () => false });
   setDoc.mockResolvedValue();
   deleteDoc.mockResolvedValue();
+  updateDoc.mockResolvedValue();
+  arrayUnion.mockImplementation(value => ({ union: value }));
+  useStarterPacks.mockReturnValue({ packs: [], isLoading: false, error: '', retry: jest.fn() });
   writeBatch.mockReturnValue({ delete: jest.fn(), commit: jest.fn().mockResolvedValue() });
+});
+
+const JoinCampaignDialog = jest.requireActual('../components/campaign/JoinCampaign').default;
+
+test('character dialog validates names, previews pack quantities and handles pack fetch errors', () => {
+  const retry = jest.fn();
+  useStarterPacks.mockReturnValue({ packs: [{ id: 'explorer', name: 'Explorer pack', items: [{ name: 'Torch', quantity: 3 }] }], isLoading: false, error: 'Could not load starter packs.', retry });
+  render(<JoinCampaignDialog campaignId="ancient-dragon-keeper" onClose={jest.fn()} onJoinSuccess={jest.fn()} />);
+  expect(screen.getByRole('dialog', { name: 'Join campaign' })).toHaveAttribute('aria-modal', 'true');
+  expect(screen.getByLabelText('Character name')).toHaveFocus();
+  userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  expect(retry).toHaveBeenCalledTimes(1);
+  userEvent.click(screen.getByRole('button', { name: 'Join campaign' }));
+  expect(screen.getByText('Enter a character name.')).toBeInTheDocument();
+  expect(getDoc).not.toHaveBeenCalled();
+  userEvent.type(screen.getByLabelText('Character name'), 'Aria');
+  expect(screen.queryByText('Enter a character name.')).not.toBeInTheDocument();
+  userEvent.selectOptions(screen.getByLabelText('Starter pack'), 'explorer');
+  expect(screen.getByRole('list', { name: 'Starter pack contents' })).toHaveTextContent('Torch3');
+});
+
+test('character dialog traps focus and dismisses with Escape when idle', () => {
+  const onClose = jest.fn();
+  render(<JoinCampaignDialog campaignId="code" onClose={onClose} onJoinSuccess={jest.fn()} />);
+  const submit = screen.getByRole('button', { name: 'Join campaign' });
+  submit.focus();
+  fireEvent.keyDown(submit, { key: 'Tab' });
+  expect(screen.getByRole('button', { name: 'Close character dialog' })).toHaveFocus();
+  fireEvent.keyDown(document.activeElement, { key: 'Tab', shiftKey: true });
+  expect(submit).toHaveFocus();
+  fireEvent.keyDown(submit, { key: 'Escape' });
+  expect(onClose).toHaveBeenCalledTimes(1);
+});
+
+test('joining locks duplicate requests and prevents dismissal while preserving player defaults', async () => {
+  let finishLookup;
+  getDoc.mockImplementation(() => new Promise(resolve => { finishLookup = resolve; }));
+  const onClose = jest.fn();
+  const onJoinSuccess = jest.fn();
+  render(<JoinCampaignDialog campaignId="code" onClose={onClose} onJoinSuccess={onJoinSuccess} />);
+  userEvent.type(screen.getByLabelText('Character name'), '  Aria  ');
+  const form = screen.getByRole('form', { name: 'Join campaign' });
+  act(() => { fireEvent.submit(form); fireEvent.submit(form); });
+  expect(getDoc).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+  fireEvent.click(document.querySelector('.join-campaign'));
+  fireEvent.keyDown(document.activeElement, { key: 'Escape' });
+  expect(onClose).not.toHaveBeenCalled();
+  await act(async () => finishLookup({ exists: () => true, data: () => ({ dmId: 'other', players: [], defaultBackpackSize: { width: 12, height: 6 } }) }));
+  expect(setDoc).toHaveBeenNthCalledWith(1, { path: 'campaigns/code/inventories/player' }, { characterName: 'Aria', ownerId: 'player', trayItems: [], totalMaxWeight: 100, weightUnit: 'lbs', currency: { gp: 0, sp: 0, cp: 0 } });
+  expect(setDoc).toHaveBeenNthCalledWith(2, { path: 'containers/backpack' }, { name: 'Backpack', gridItems: [], gridWidth: 12, gridHeight: 6, trackWeight: true });
+  expect(onJoinSuccess).toHaveBeenCalledWith('code');
+});
+
+test('DM retry finishes backpack setup without recreating a saved character', async () => {
+  const originalCrypto = Object.getOwnPropertyDescriptor(global, 'crypto');
+  const randomUUID = jest.fn(() => 'character-id');
+  Object.defineProperty(global, 'crypto', { configurable: true, value: { randomUUID } });
+  const errorLog = jest.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    getDoc.mockResolvedValue({ exists: () => true, data: () => ({ dmId: 'player', players: [] }) });
+    setDoc.mockResolvedValueOnce().mockRejectedValueOnce(new Error('network')).mockResolvedValue();
+    const onJoinSuccess = jest.fn();
+    render(<JoinCampaignDialog campaignId="code" isDMAddingCharacter onClose={jest.fn()} onJoinSuccess={onJoinSuccess} />);
+    userEvent.type(screen.getByLabelText('Character name'), 'Aria{enter}');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your character was saved');
+    expect(screen.getByLabelText('Character name')).toHaveAttribute('readonly');
+    userEvent.click(screen.getByRole('button', { name: 'Finish setup' }));
+    await waitFor(() => expect(onJoinSuccess).toHaveBeenCalledWith('code'));
+    expect(randomUUID).toHaveBeenCalledTimes(1);
+    expect(setDoc).toHaveBeenCalledTimes(3);
+    expect(setDoc.mock.calls.filter(([reference]) => reference.path.includes('/inventories/'))).toHaveLength(1);
+    expect(setDoc.mock.calls[0][1]).toMatchObject({ totalMaxWeight: 150, strength: 10, size: 'Medium', useCalculatedWeight: true });
+  } finally {
+    if (originalCrypto) Object.defineProperty(global, 'crypto', originalCrypto);
+    else delete global.crypto;
+    errorLog.mockRestore();
+  }
 });
 
 test('loading the list does not pretend a campaign is being created or joined', async () => {

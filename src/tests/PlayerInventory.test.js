@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import PlayerInventory from '../components/inventory/PlayerInventory';
 import { InventoryItemVisual } from '../components/inventory/InventoryItem';
+import InventoryActions from '../components/inventory/InventoryActions';
 
 jest.mock('../components/icons/DynamicIcon', () => ({
   __esModule: true,
@@ -75,6 +77,22 @@ test('shows only the shared tray for a loot pile', () => {
   expect(screen.getByTestId('tray-tray')).toBeInTheDocument();
 });
 
+test('character controls identify settings and expose the equipment drawer state', () => {
+  const onToggleEquipped = jest.fn();
+  const setEditingSettings = jest.fn();
+  const { rerender } = render(<PlayerInventory {...props} onToggleEquipped={onToggleEquipped} setEditingSettings={setEditingSettings} />);
+  expect(screen.getByRole('region', { name: 'Adventurer inventory' })).toBeInTheDocument();
+  const equipped = screen.getByRole('button', { name: 'Hide equipped items' });
+  expect(equipped).toHaveAttribute('aria-expanded', 'true');
+  expect(document.getElementById(equipped.getAttribute('aria-controls'))).toHaveClass('inventory-grid__equipped--visible');
+  userEvent.click(equipped);
+  expect(onToggleEquipped).toHaveBeenCalledTimes(1);
+  userEvent.click(screen.getByRole('button', { name: 'Inventory settings for Adventurer' }));
+  expect(setEditingSettings).toHaveBeenCalledWith({ playerId: 'player', currentSettings: inventoryData, isDMInventory: false });
+  rerender(<PlayerInventory {...props} isEquippedVisible={false} />);
+  expect(screen.getByRole('button', { name: 'Show equipped items' })).toHaveAttribute('aria-expanded', 'false');
+});
+
 test('keeps item icons, clipped names, and quantities in drag previews', () => {
   const item = { name: 'Long item name', type: 'misc', icon: 'bag', stackable: true, quantity: 3 };
   const { container } = render(<div className="inventory-item"><InventoryItemVisual item={item} isTextVisible /></div>);
@@ -82,4 +100,30 @@ test('keeps item icons, clipped names, and quantities in drag previews', () => {
   expect(container.querySelector('.inventory-item__icon-image')).toBeInTheDocument();
   expect(screen.getByText('Long item name')).toHaveClass('inventory-item__name');
   expect(screen.getByText('3')).toHaveClass('inventory-item__quantity');
+});
+
+test('floating inventory tools give players named item actions without DM controls', () => {
+  const onOpenCompendium = jest.fn();
+  const onAddItem = jest.fn();
+  render(<InventoryActions isDM={false} onOpenCompendium={onOpenCompendium} onAddItem={onAddItem} />);
+  expect(screen.getByRole('group', { name: 'Inventory tools' })).toBeInTheDocument();
+  expect(screen.getByRole('group', { name: 'Inventory tools' })).toHaveClass('inventory-grid__tools--floating');
+  userEvent.click(screen.getByRole('button', { name: 'Add Item from Compendium' }));
+  userEvent.click(screen.getByRole('button', { name: 'Create New Item' }));
+  expect(onOpenCompendium).toHaveBeenCalledTimes(1);
+  expect(onAddItem).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole('button', { name: 'Create Merchant' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Manage campaign' })).not.toBeInTheDocument();
+  screen.getAllByRole('button').forEach(button => {
+    expect(button).toHaveAttribute('type', 'button');
+    expect(button).toHaveAttribute('title');
+  });
+});
+
+test('floating inventory tools preserve the merchant action for the DM', () => {
+  const onCreateMerchant = jest.fn();
+  render(<InventoryActions isDM onOpenCompendium={jest.fn()} onAddItem={jest.fn()} onCreateMerchant={onCreateMerchant} />);
+  userEvent.click(screen.getByRole('button', { name: 'Create Merchant' }));
+  expect(onCreateMerchant).toHaveBeenCalledTimes(1);
+  expect(screen.getAllByRole('button')).toHaveLength(3);
 });

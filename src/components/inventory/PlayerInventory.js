@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { Cog6ToothIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 import DraggableContainerCard from './DraggableContainerCard';
 import ItemTray from './ItemTray';
 import Wallet from './Wallet';
@@ -46,16 +47,15 @@ export default function PlayerInventory({
 
   const isPlayerDM = campaign?.dmId === playerId;
   const isMyInventory = user.uid === inventoryData.ownerId;
+  const characterName = inventoryData.characterName || playerProfiles[playerId]?.displayName || 'Unnamed character';
 
   return (
-    <div className={`inventory-grid__player-inventory${isLootPile ? '' : ' inventory-grid__player-inventory--regular'}`}>
+    <section className={`inventory-grid__player-inventory${isLootPile ? '' : ' inventory-grid__player-inventory--regular'}`} aria-label={isLootPile ? undefined : `${characterName} inventory`}>
 
       {/* 1. HIDE HEADER FOR LOOT PILE (No Name, Wallet, or Weight) */}
       {!isLootPile && (
         <div className="inventory-grid__player-header">
-          <h2 className="inventory-grid__player-name">
-            {inventoryData.characterName || playerProfiles[playerId]?.displayName}
-          </h2>
+          <h3 className="inventory-grid__player-name">{characterName}</h3>
           <div className="inventory-grid__player-actions">
             {!isPlayerDM && (
               <Wallet
@@ -74,28 +74,30 @@ export default function PlayerInventory({
             )}
             {!isPlayerDM && (
               <button
+                type="button"
                 onClick={onToggleEquipped}
                 className="inventory-grid__player-action"
-                title="Toggle Equipped Items"
+                aria-label={isEquippedVisible ? 'Hide equipped items' : 'Show equipped items'}
+                aria-expanded={isEquippedVisible}
+                aria-controls={`equipped-${playerId}`}
+                title={isEquippedVisible ? 'Hide equipped items' : 'Show equipped items'}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="inventory-grid__player-action-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.602-3.751m-.228-1.12A12.001 12.001 0 0012 2.75c-2.652 0-5.115 1.02-6.974 2.722" />
-                </svg>
+                <ShieldCheckIcon className="inventory-grid__player-action-icon" aria-hidden="true" />
               </button>
             )}
             {isMyInventory && !isPlayerDM && (
               <button
+                type="button"
                 onClick={() => setEditingSettings({
                   playerId: playerId,
                   currentSettings: inventoryData,
                   isDMInventory: isPlayerDM
                 })}
                 className="inventory-grid__player-action"
+                aria-label={`Inventory settings for ${characterName}`}
+                title="Inventory settings"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="inventory-grid__player-action-icon inventory-grid__player-action-icon--small" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
-                  <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
-                </svg>
+                <Cog6ToothIcon className="inventory-grid__player-action-icon" aria-hidden="true" />
               </button>
             )}
           </div>
@@ -104,9 +106,9 @@ export default function PlayerInventory({
 
       {/* Collapsible Equipped Items Tray */}
       {!isPlayerDM && !isLootPile && (
-        <div className={`inventory-grid__equipped${isEquippedVisible ? ' inventory-grid__equipped--visible' : ''}`}>
+        <div id={`equipped-${playerId}`} className={`inventory-grid__equipped${isEquippedVisible ? ' inventory-grid__equipped--visible' : ''}`}>
           <div className="inventory-grid__equipped-content">
-            <h3 className="inventory-grid__equipped-title">Equipped</h3>
+            <h4 className="inventory-grid__equipped-title">Equipped</h4>
             <div className="inventory-grid__tray">
               <ItemTray
                 items={inventoryData.equippedItems || []}
@@ -150,7 +152,7 @@ export default function PlayerInventory({
           <div className="inventory-grid__floor">
             {/* 2. CHANGE TRAY LABEL: Hide 'Floor/Ground' for loot pile */}
             {!isLootPile && (
-              <h3 className="inventory-grid__floor-title">Floor / Ground</h3>
+              <h4 className="inventory-grid__floor-title">Floor / Ground</h4>
             )}
 
             <div className={`inventory-grid__tray${isLootPile ? ' inventory-grid__tray--loot' : ''}`}>
@@ -166,6 +168,6 @@ export default function PlayerInventory({
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

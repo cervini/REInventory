@@ -1,10 +1,11 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { auth } from '../firebase';
 import App from '../App';
 import ProfileMenu from '../components/auth/ProfileMenu';
+import ProfileSettings from '../components/auth/ProfileSettings';
 
 jest.mock('../firebase', () => ({ auth: { signOut: jest.fn() }, db: {} }));
 jest.mock('../components/inventory/InventoryGrid', () => ({ campaignId }) => <h2>Inventory {campaignId}</h2>);
@@ -24,6 +25,7 @@ jest.mock('firebase/firestore', () => ({
   ...jest.requireActual('firebase/firestore'),
   doc: jest.fn(),
   onSnapshot: jest.fn(),
+  setDoc: jest.fn(),
 }));
 
 test('shows the login form after signed-out auth loads', async () => {
@@ -192,6 +194,128 @@ test('the signed-in app header connects the profile menu to profile settings', (
   userEvent.click(screen.getByRole('menuitem', { name: 'Profile settings' }));
   expect(screen.getByRole('heading', { name: 'Profile Settings' })).toBeInTheDocument();
   expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+});
+
+const renderProfileSettings = () => {
+  doc.mockImplementation((_db, ...parts) => ({ path: parts.join('/') }));
+  setDoc.mockReset().mockResolvedValue();
+  auth.signOut.mockReset().mockResolvedValue();
+  auth.currentUser = { ...profileUser, getIdToken: jest.fn().mockResolvedValue('test-token') };
+  const onClose = jest.fn();
+  return { ...render(<ProfileSettings user={profileUser} userProfile={{ displayName: 'Simone Cervini' }} onClose={onClose} />), onClose };
+};
+
+test('profile settings validates names and saves trimmed changes once without deleting progress', async () => {
+  const { onClose } = renderProfileSettings();
+  expect(screen.getByRole('dialog', { name: 'Profile Settings' })).toHaveAttribute('aria-modal', 'true');
+  const name = screen.getByLabelText('Display name');
+  expect(name).toHaveFocus();
+  expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
+  userEvent.clear(name);
+  userEvent.type(name, '   ');
+  userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(screen.getByRole('alert')).toHaveTextContent('Enter a display name.');
+  expect(setDoc).not.toHaveBeenCalled();
+  userEvent.clear(name);
+  userEvent.type(name, '  Aria  ');
+  let finishSave;
+  setDoc.mockImplementation(() => new Promise(resolve => { finishSave = resolve; }));
+  const form = screen.getByRole('form', { name: 'Profile settings' });
+  act(() => { fireEvent.submit(form); fireEvent.submit(form); });
+  expect(setDoc).toHaveBeenCalledTimes(1);
+  expect(setDoc).toHaveBeenCalledWith({ path: 'users/player' }, { displayName: 'Aria' }, { merge: true });
+  expect(screen.getByRole('button', { name: 'Saving...' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Delete account' })).toBeDisabled();
+  expect(screen.queryByRole('button', { name: 'Deleting...' })).not.toBeInTheDocument();
+  fireEvent.click(document.querySelector('.profile-settings'));
+  fireEvent.keyDown(document.activeElement, { key: 'Escape' });
+  expect(onClose).not.toHaveBeenCalled();
+  await act(async () => finishSave());
+  expect(onClose).toHaveBeenCalledTimes(1);
+});
+
+test('profile settings keeps failed edits available for retry', async () => {
+  renderProfileSettings();
+  setDoc.mockRejectedValueOnce(new Error('private backend details')).mockResolvedValue();
+  const name = screen.getByLabelText('Display name');
+  userEvent.clear(name);
+  userEvent.type(name, 'Aria{enter}');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not save your profile. Please try again.');
+  expect(name).toHaveValue('Aria');
+  expect(screen.getByRole('button', { name: 'Save changes' })).toHaveFocus();
+  expect(screen.queryByText('private backend details')).not.toBeInTheDocument();
+  userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+  await waitFor(() => expect(setDoc).toHaveBeenCalledTimes(2));
+});
+
+test('profile settings deletion is explicit, traps focus and Escape returns without losing edits', () => {
+  const { onClose } = renderProfileSettings();
+  userEvent.clear(screen.getByLabelText('Display name'));
+  userEvent.type(screen.getByLabelText('Display name'), 'Unsaved name');
+  userEvent.click(screen.getByRole('button', { name: 'Delete account' }));
+  expect(screen.getByText(/campaigns you own will be removed/)).toBeInTheDocument();
+  expect(screen.getByLabelText('Type DELETE to confirm')).toHaveFocus();
+  const remove = screen.getByRole('button', { name: 'Delete account' });
+  expect(remove).toBeDisabled();
+  userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'delete');
+  expect(remove).toBeDisabled();
+  userEvent.clear(screen.getByLabelText('Type DELETE to confirm'));
+  userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE');
+  remove.focus();
+  fireEvent.keyDown(remove, { key: 'Tab' });
+  expect(screen.getByRole('button', { name: 'Close profile settings' })).toHaveFocus();
+  fireEvent.keyDown(document.activeElement, { key: 'Tab', shiftKey: true });
+  expect(remove).toHaveFocus();
+  fireEvent.keyDown(remove, { key: 'Escape' });
+  expect(screen.getByLabelText('Display name')).toHaveValue('Unsaved name');
+  expect(screen.getByLabelText('Display name')).toHaveFocus();
+  expect(onClose).not.toHaveBeenCalled();
+  expect(auth.currentUser.getIdToken).not.toHaveBeenCalled();
+});
+
+test('profile settings deletion uses the existing authenticated endpoint once and signs out after success', async () => {
+  const originalFetch = global.fetch;
+  let finishDelete;
+  global.fetch = jest.fn(() => new Promise(resolve => { finishDelete = resolve; }));
+  try {
+    const { onClose } = renderProfileSettings();
+    userEvent.click(screen.getByRole('button', { name: 'Delete account' }));
+    userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE');
+    const form = screen.getByRole('form', { name: 'Confirm account deletion' });
+    act(() => { fireEvent.submit(form); fireEvent.submit(form); });
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    expect(global.fetch).toHaveBeenCalledWith('https://us-central1-re-inventory-v2.cloudfunctions.net/deleteUserAccount', { method: 'POST', headers: { Authorization: 'Bearer test-token' } });
+    expect(screen.getByRole('button', { name: 'Deleting...' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Go back' })).toBeDisabled();
+    fireEvent.click(document.querySelector('.profile-settings'));
+    fireEvent.keyDown(document.activeElement, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(auth.signOut).not.toHaveBeenCalled();
+    await act(async () => finishDelete({ ok: true }));
+    expect(auth.signOut).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  } finally { global.fetch = originalFetch; }
+});
+
+test('profile settings separates server deletion failure from sign-out retry after confirmed deletion', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = jest.fn().mockResolvedValueOnce({ ok: false, status: 500 }).mockResolvedValue({ ok: true });
+  try {
+    const { onClose } = renderProfileSettings();
+    auth.signOut.mockRejectedValueOnce(new Error('offline')).mockResolvedValue();
+    userEvent.click(screen.getByRole('button', { name: 'Delete account' }));
+    userEvent.type(screen.getByLabelText('Type DELETE to confirm'), 'DELETE{enter}');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Some data may already have been removed');
+    expect(auth.signOut).not.toHaveBeenCalled();
+    userEvent.click(screen.getByRole('button', { name: 'Delete account' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Your account was deleted, but sign-out failed'));
+    expect(screen.getByRole('heading', { name: 'Account deleted' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Type DELETE to confirm')).not.toBeInTheDocument();
+    userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(auth.signOut).toHaveBeenCalledTimes(2);
+  } finally { global.fetch = originalFetch; }
 });
 
 test('the signed-in app header signs out through Firebase and returns to login', async () => {

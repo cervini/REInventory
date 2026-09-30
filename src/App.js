@@ -162,7 +162,7 @@ export default function App() {
       />
       <Tooltip
         id="item-tooltip"
-        style={{ zIndex: 99, maxWidth: '300px' }}
+        style={{ zIndex: 9, maxWidth: '300px' }}
         openOnClick={true}
         delayShow={200}
         clickable={true}
