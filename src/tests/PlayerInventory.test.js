@@ -1,6 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import PlayerInventory from '../components/inventory/PlayerInventory';
+import { InventoryItemVisual } from '../components/inventory/InventoryItem';
 
+jest.mock('../components/icons/DynamicIcon', () => ({
+  __esModule: true,
+  default: ({ className }) => require('react').createElement('svg', { className }),
+}));
 jest.mock('../components/inventory/DraggableContainerCard', () => ({ container }) =>
   require('react').createElement('div', { 'data-testid': 'container-card' }, container.name));
 jest.mock('../components/inventory/ItemTray', () => ({ containerId, items }) =>
@@ -50,4 +55,13 @@ test('shows only the shared tray for a loot pile', () => {
   expect(screen.queryByTestId('container-card')).not.toBeInTheDocument();
   expect(screen.queryByTestId('carried-weight')).not.toBeInTheDocument();
   expect(screen.getByTestId('tray-tray')).toBeInTheDocument();
+});
+
+test('keeps item icons, clipped names, and quantities in drag previews', () => {
+  const item = { name: 'Long item name', type: 'misc', icon: 'bag', stackable: true, quantity: 3 };
+  const { container } = render(<div className="inventory-item"><InventoryItemVisual item={item} isTextVisible /></div>);
+
+  expect(container.querySelector('.inventory-item__icon-image')).toBeInTheDocument();
+  expect(screen.getByText('Long item name')).toHaveClass('inventory-item__name');
+  expect(screen.getByText('3')).toHaveClass('inventory-item__quantity');
 });

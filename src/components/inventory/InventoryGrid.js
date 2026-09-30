@@ -7,13 +7,13 @@ import PlayerInventory from './PlayerInventory';
 import LootPileSection from './LootPileSection';
 import MerchantSection from './MerchantSection';
 import InventoryActions from './InventoryActions';
+import { InventoryItemVisual } from './InventoryItem';
 import { findFirstAvailableSlot, getContainerDropPosition, onOtherItem, outOfBounds } from '../../utils/gridUtils';
 import AddItem from '../items/AddItem';
 import ContextMenu from '../ui/ContextMenu';
 import SplitStack from './SplitStack';
 import Spinner from '../ui/Spinner';
 import InventorySettings from './InventorySettings';
-import { getColorForItemType } from '../../utils/itemUtils';
 import AddFromCompendium from '../compendium/AddFromCompendium';
 import { useCampaignStore } from '../../stores/useCampaignStore';
 import { usePlayerProfiles } from '../../hooks/usePlayerProfiles';
@@ -1456,6 +1456,11 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
             >
               <div className="inventory-grid__container-card-header">
                 <div className="inventory-grid__container-card-handle">
+                  <div className="inventory-grid__container-card-grip">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="inventory-grid__container-card-grip-icon">
+                      <path fillRule="evenodd" d="M9 4.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm0 7.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm7.5-7.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm0 7.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm-7.5 7.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm7.5 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" clipRule="evenodd" />
+                    </svg>
+                  </div>
                   <span className="inventory-grid__container-card-name">{activeContainer.container.name}</span>
                 </div>
               </div>
@@ -1469,13 +1474,13 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
                 {(activeContainer.container.gridItems || []).map(item => (
                   <div
                     key={item.id}
-                    className={`${getColorForItemType(item.type)} inventory-grid__container-card-preview-item`}
+                    className="inventory-item inventory-grid__container-card-preview-item"
                     style={{
                       gridColumn: `${item.x + 1} / span ${item.w}`,
                       gridRow: `${item.y + 1} / span ${item.h}`,
                     }}
                   >
-                    {item.name}
+                    <InventoryItemVisual item={item} isTextVisible />
                   </div>
                 ))}
               </div>
@@ -1486,14 +1491,12 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
                 width: activeItem.dimensions.width,
                 height: activeItem.dimensions.height,
               }}
-              className={`${getColorForItemType(activeItem.item.type)} inventory-grid__drag-preview`}
+              className="inventory-item inventory-grid__drag-preview"
             >
-              {activeItem.item.name}
-              {activeItem.item.stackable && activeItem.item.quantity > 1 && (
-                <span className="inventory-grid__drag-quantity" style={{ WebkitTextStroke: '1px black' }}>
-                  {activeItem.item.quantity}
-                </span>
-              )}
+              <InventoryItemVisual
+                item={activeItem.item}
+                isTextVisible={activeItem.dimensions.width > 20 && activeItem.dimensions.height > 20}
+              />
             </div>
           ) : null}
         </DragOverlay>

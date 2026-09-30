@@ -6,6 +6,26 @@ import { useLongPress } from '../../hooks/useLongPress';
 import DynamicIcon from '../icons/DynamicIcon';
 import './InventoryItem.css';
 
+export function InventoryItemVisual({ item, isTextVisible, surfaceProps }) {
+  return (
+    <div {...surfaceProps} className={`${getColorForItemType(item.type)} inventory-item__surface`}>
+      <div className="inventory-item__content">
+        {item.icon && (
+          <div className="inventory-item__icon">
+            <DynamicIcon iconName={item.icon} className="inventory-item__icon-image" />
+          </div>
+        )}
+        {isTextVisible && <span className="inventory-item__name">{item.name}</span>}
+      </div>
+      {item.stackable && item.quantity > 1 && isTextVisible && (
+        <span className="inventory-item__quantity" style={{ WebkitTextStroke: '1px hsl(var(--color-background))' }}>
+          {item.quantity}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /**
  * Renders a single draggable and droppable inventory item.
  * Now supports a 'disabled' prop to prevent interaction when hidden.
@@ -65,32 +85,7 @@ export default function InventoryItem({ item, onContextMenu, playerId, source, c
       data-tooltip-html={disabled ? undefined : generateItemTooltip(item, isViewerDM)}
       {...longPressProps}
     >
-      <div
-        {...listeners}
-        {...attributes}
-        className={`${getColorForItemType(item.type)} inventory-item__surface`}
-      >
-        <div className="inventory-item__content">
-          {/* Render the icon */}
-          {item.icon && (
-            <div className="inventory-item__icon">
-              <DynamicIcon iconName={item.icon} className="inventory-item__icon-image" />
-            </div>
-          )}
-
-          {isTextVisible && (
-            <span className="inventory-item__name">
-              {item.name}
-            </span>
-          )}
-        </div>
-        
-        {item.stackable && item.quantity > 1 && isTextVisible && (
-          <span className="inventory-item__quantity" style={{ WebkitTextStroke: '1px hsl(var(--color-background))' }}>
-            {item.quantity}
-          </span>
-        )}
-      </div>
+      <InventoryItemVisual item={item} isTextVisible={isTextVisible} surfaceProps={{ ...listeners, ...attributes }} />
     </div>
   );
 }

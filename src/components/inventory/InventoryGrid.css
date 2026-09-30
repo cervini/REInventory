@@ -71,23 +71,15 @@
   flex: 1;
   width: 100%;
   min-height: 0;
+  gap: 1px;
   border: 1px solid hsl(var(--color-accent) / 0.1);
   border-radius: 0.5rem;
   background-color: hsl(var(--color-background) / 0.5);
 }
 
 .inventory-grid__container-card-preview-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   min-width: 0;
-  overflow: hidden;
-  border: 1px solid hsl(var(--color-surface) / 0.5);
-  border-radius: 0.5rem;
-  color: hsl(var(--color-text-base));
-  font-size: 0.75rem;
-  font-weight: 700;
-  white-space: nowrap;
+  min-height: 0;
 }
 
 .inventory-grid__player-inventory {
@@ -369,27 +361,7 @@
 }
 
 .inventory-grid__drag-preview {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.25rem;
-  border-radius: 0.5rem;
-  color: hsl(var(--color-text-base));
-  font-size: 0.75rem;
-  font-weight: 700;
-  line-height: 1rem;
-  text-align: center;
   box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
-  transform: scale(1.05);
-}
-
-.inventory-grid__drag-quantity {
-  position: absolute;
-  right: 0.25rem;
-  bottom: 0;
-  font-size: 1.125rem;
-  font-weight: 900;
-  line-height: 1.75rem;
 }
 
 .inventory-grid__loot,
@@ -575,10 +547,6 @@
     height: 1.5rem;
   }
 
-  .inventory-grid__drag-preview {
-    font-size: 0.875rem;
-    line-height: 1.25rem;
-  }
 }
 
 @media (min-width: 768px) {
