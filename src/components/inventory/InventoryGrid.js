@@ -795,6 +795,14 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
     setActiveContainer(null);
   };
 
+  // Finds the object that holds the tray array for an inventory. Uses a legacy
+  // per-container tray if one really exists, otherwise the inventory's main tray.
+  const getTrayHolder = (inv, containerId, itemId) => {
+    const c = containerId && containerId !== 'tray' ? inv.containers?.[containerId] : null;
+    if (c && Array.isArray(c.trayItems) && (itemId === undefined || c.trayItems.some(i => i.id === itemId))) return c;
+    return inv;
+  };
+
   /**
    * Handles the end of a drag-and-drop operation. This is the core logic for
    * moving items, stacking items, and transferring items between players. It updates
@@ -872,31 +880,26 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
       const remainingQuantity = item.quantity - amountToTransfer;
 
       const endPlayerInv = newInventories[endPlayerId];
-      const isEndDM = endPlayerInv.characterName === "DM";
       if (endDestination === 'grid') {
         endPlayerInv.containers[endContainerId].gridItems.find(i => i.id === passiveItem.id).quantity += amountToTransfer;
       } else {
-        const targetTray = isEndDM ? endPlayerInv.containers[endContainerId].trayItems : endPlayerInv.trayItems;
+        const targetTray = getTrayHolder(endPlayerInv, endContainerId, passiveItem.id).trayItems;
         targetTray.find(i => i.id === passiveItem.id).quantity += amountToTransfer;
       }
 
       const startPlayerInv = newInventories[startPlayerId];
-      const isStartDM = startPlayerInv.characterName === "DM";
       if (remainingQuantity <= 0) {
         if (startSource === 'grid') {
           startPlayerInv.containers[startContainerId].gridItems = startPlayerInv.containers[startContainerId].gridItems.filter(i => i.id !== item.id);
         } else {
-          if (isStartDM) {
-            startPlayerInv.containers[startContainerId].trayItems = startPlayerInv.containers[startContainerId].trayItems.filter(i => i.id !== item.id);
-          } else {
-            startPlayerInv.trayItems = startPlayerInv.trayItems.filter(i => i.id !== item.id);
-          }
+          const holder = getTrayHolder(startPlayerInv, startContainerId, item.id);
+          holder.trayItems = holder.trayItems.filter(i => i.id !== item.id);
         }
       } else {
         if (startSource === 'grid') {
           startPlayerInv.containers[startContainerId].gridItems.find(i => i.id === item.id).quantity = remainingQuantity;
         } else {
-          const sourceTray = isStartDM ? startPlayerInv.containers[startContainerId].trayItems : startPlayerInv.trayItems;
+          const sourceTray = getTrayHolder(startPlayerInv, startContainerId, item.id).trayItems;
           sourceTray.find(i => i.id === item.id).quantity = remainingQuantity;
         }
       }
@@ -955,9 +958,6 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
     const endPlayerInv = newInventories[endPlayerId];
     if (!startPlayerInv || !endPlayerInv) return;
 
-    const isStartDM = startPlayerInv.characterName === 'DM';
-    const isEndDM = endPlayerInv.characterName === 'DM';
-
     if (endPlayerId === 'public-loot' && !isDM) {
       toast.error("Only the DM can add items to the Loot Pile.");
       return;
@@ -973,7 +973,7 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
       const itemIndex = startPlayerInv.equippedItems.findIndex(i => i.id === item.id);
       if (itemIndex > -1) [movedItem] = startPlayerInv.equippedItems.splice(itemIndex, 1);
     } else {
-      const sourceTray = isStartDM ? startPlayerInv.containers?.[startContainerId]?.trayItems : startPlayerInv.trayItems;
+      const sourceTray = getTrayHolder(startPlayerInv, startContainerId, item.id).trayItems;
       if (!sourceTray) return;
       const itemIndex = sourceTray.findIndex(i => i.id === item.id);
       if (itemIndex > -1) [movedItem] = sourceTray.splice(itemIndex, 1);
@@ -998,22 +998,19 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
         endContainer.gridItems.push({ ...movedItem, ...finalPos });
       } else {
         toast.error("No space in destination!");
-        const sourceTray = isStartDM ? startPlayerInv.containers[startContainerId].trayItems : startPlayerInv.trayItems;
-        sourceTray.push(movedItem);
+        const holder = getTrayHolder(startPlayerInv, startContainerId);
+        if (!holder.trayItems) holder.trayItems = [];
+        holder.trayItems.push(movedItem);
       }
     } else {
       const { x, y, ...trayItem } = movedItem;
       if (endDestination === 'equipped') {
         if (!endPlayerInv.equippedItems) endPlayerInv.equippedItems = [];
         endPlayerInv.equippedItems.push(trayItem);
-      } else if (isEndDM) {
-        const destContainer = endPlayerInv.containers?.[endContainerId];
-        if (!destContainer) return;
-        if (!destContainer.trayItems) destContainer.trayItems = [];
-        destContainer.trayItems.push(trayItem);
       } else {
-        if (!endPlayerInv.trayItems) endPlayerInv.trayItems = [];
-        endPlayerInv.trayItems.push(trayItem);
+        const holder = getTrayHolder(endPlayerInv, endContainerId);
+        if (!holder.trayItems) holder.trayItems = [];
+        holder.trayItems.push(trayItem);
       }
     }
 
