@@ -1158,30 +1158,14 @@ export default function InventoryGrid({ campaignId, user, userProfile }) {
       id: crypto.randomUUID(),
     };
 
-    const isPlayerDM = campaign?.dmId === playerId;
-    let firestorePromise;
-
-    if (isPlayerDM) {
-      const container = Object.values(playerInv.containers || {})[0];
-      if (!container) {
-        toast.error("DM has no containers to add items to!");
-        return;
-      }
-      if (!container.trayItems) container.trayItems = [];
-      container.trayItems.push(newItem);
-      const containerRef = doc(db, 'campaigns', campaignId, 'inventories', playerId, 'containers', container.id);
-      firestorePromise = updateDoc(containerRef, { trayItems: container.trayItems });
-    } else {
-      if (!playerInv.trayItems) playerInv.trayItems = [];
-      playerInv.trayItems.push(newItem);
-      const playerInvRef = doc(db, 'campaigns', campaignId, 'inventories', playerId);
-      firestorePromise = updateDoc(playerInvRef, { trayItems: playerInv.trayItems });
-    }
+    if (!playerInv.trayItems) playerInv.trayItems = [];
+    playerInv.trayItems.push(newItem);
+    const playerInvRef = doc(db, 'campaigns', campaignId, 'inventories', playerId);
 
     setInventoriesOptimistic(newInventories);
 
     try {
-      await firestorePromise;
+      await updateDoc(playerInvRef, { trayItems: playerInv.trayItems });
       toast.success(`Duplicated ${item.name}.`);
     } catch (error) {
       toast.error("Failed to duplicate item. Reverting.");
